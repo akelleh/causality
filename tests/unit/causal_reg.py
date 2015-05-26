@@ -31,7 +31,7 @@ class TestCausalEffect(TestAPI):
         admissable_set = []
         variable_types={'a': 'u','b': 'u','c': 'u','d' : 'u'}
         effect = CausalEffect(self.discrete,causes,effects,admissable_set,variable_types)
-        # p(d=1|do(c=0) = 0.90, p(d=1|b=0) = 0.40
+        # p(d=1|do(c=0) = 0.45, p(d=1|b=0) = 0.40
         p = effect.pdf(pd.DataFrame({ 'd' : [1], 'c' : [0]}))
         print p
         assert( abs( 0.40 - p ) < 0.02 ) 
@@ -43,9 +43,12 @@ class TestCausalEffect(TestAPI):
         admissable_set = ['a']
         variable_types={'a': 'c','b': 'c','c': 'c','d' : 'c'}
         effect = CausalEffect(self.X,causes,effects,admissable_set,variable_types)
-        e1 =  effect.pdf(pd.DataFrame({ 'd' : [3000], 'c' : [400]}))
-        e2 =  effect.pdf(pd.DataFrame({ 'd' : [3000], 'c' : [600]}))
-        assert( abs(e2 - e1) / e2 < TOL )
+        c = np.mean(effect.support['c'])
+        d = np.mean(effect.support['d'])
+        e1 =  effect.pdf(pd.DataFrame({ 'd' : [d], 'c' : [ 0.9 * c]}))
+        e2 =  effect.pdf(pd.DataFrame({ 'd' : [d], 'c' : [ 1.1 * c]}))
+        print e2, e1, e2 - e1, (e2 - e1) / e2
+        assert( abs(e2 - e1) / e2 < 0.05 )
 
 
     def test_pdf_mixed(self):
@@ -67,6 +70,7 @@ class TestCausalEffect(TestAPI):
         z_vals = [np.mean(effect.support[var]) for var in admissable_set]
         density = lambda x: effect.conditional_density.pdf(endog_predict=[x], exog_predict=x_vals + z_vals)
         integral = nquad(density, [effect.support[d_var] for d_var in effects])[0]
+        print x_vals, z_vals,integral
         assert(abs(integral - 1.) < TOL)
 
 
@@ -91,3 +95,56 @@ class TestCausalEffect(TestAPI):
         admissable_set = ['a']
         variable_types={'a': 'c','b': 'c','c': 'c','d' : 'c'}
         effect = CausalEffect(self.X,causes,effects,admissable_set,variable_types)
+
+
+
+    def test_expectation_discrete(self):
+        causes = ['c']
+        effects = ['d']
+        admissable_set = ['a']
+        variable_types={'a': 'u','b': 'u','c': 'u','d' : 'u'}
+        effect = CausalEffect(self.discrete,
+                    causes,
+                    effects,
+                    admissable_set,
+                    variable_types, 
+                    density=False, 
+                    expectation=True)
+
+        x = pd.DataFrame({ 'c' : [0]})
+        p = effect.expected_value(x)
+        print "p(d=1 | do(c = 0) ): ", p
+        assert( abs( 0.40 - p ) < 0.05 ) 
+
+        x = pd.DataFrame({ 'c' : [1]})
+        p = effect.expected_value(x)
+        print "p(d=1 | do(c = 1) ): ", p
+        assert( abs( 0.40 - p ) < 0.05 ) 
+
+
+        causes = ['b']
+        effects = ['d']
+        admissable_set = ['a']
+        variable_types={'a': 'u','b': 'u','c': 'u','d' : 'u'}
+        effect = CausalEffect(self.discrete,
+                    causes,
+                    effects,
+                    admissable_set,
+                    variable_types, 
+                    density=False, 
+                    expectation=True)
+
+        x = pd.DataFrame({ 'b' : [0]})
+        p = effect.expected_value(x)
+        print "p(d=1 | do(b = 0) ): ", p
+        assert( abs( p - 0.75 ) < 0.05 )
+
+        x = pd.DataFrame({ 'b' : [1]})
+        p = effect.expected_value(x)
+        print "p(d=1 | do(b = 1) ): ",p 
+        assert( abs( p - 0.25 ) < 0.05 )
+
+
+
+
+

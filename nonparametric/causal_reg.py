@@ -31,19 +31,25 @@ class CausalEffect(object):
         else:
             self.variable_types = self.__infer_variable_types(X)
 
+        if 'c' not in variable_types.values():
+            bw = 'cv_ml'
+        else:
+            bw = 'normal_reference'
+
+
         if admissable_set:            
             self.density = KDEMultivariate(X[admissable_set], 
                                   var_type=''.join(density_types),
-                                  bw='cv_ml')
-        if density:
-            self.conditional_density = KDEMultivariateConditional(endog=X[effects],
+                                  bw=bw)
+        #if density:
+        self.conditional_density = KDEMultivariateConditional(endog=X[effects],
                                                          exog=X[conditional_density_vars],
                                                          dep_type=''.join(dep_type),
                                                          indep_type=''.join(indep_type),
-                                                         bw='cv_ml')
+                                                         bw=bw)
         if expectation:
             self.conditional_expectation = KernelReg(X[effects].values,
-                                                 X[conditional_density_vars],
+                                                 X[conditional_density_vars].values,
                                                  ''.join(indep_type),
                                                  bw='cv_ls')
 
@@ -91,7 +97,7 @@ class CausalEffect(object):
     
     def expectation_integration_function(self, *args):
         data = pd.DataFrame({ k : [v] for k, v in zip(self.continuous_Z + self.discrete_Z + self.causes, args)})
-        conditional = self.conditional_expectation.fit(data_predict=data[self.conditional_density_vars].values[0])[0]
+        conditional = self.conditional_expectation.fit(data_predict=data[self.conditional_density_vars].values)[0]
         density = self.density.pdf(data_predict=data[self.admissable_set])
         return conditional * density
 
@@ -133,6 +139,7 @@ class CausalEffect(object):
             return causal_effect
         else:
             return self.conditional_density.pdf(exog_predict=x[self.causes],endog_predict=x[self.effects])
+
        
  
     def expected_value( self, x):
@@ -160,7 +167,7 @@ class CausalEffect(object):
                 else:
                     z_discrete = z_discrete[self.admissable_set]
                     exog_predictors = x.join(z_discrete)[self.conditional_density_vars]
-                    causal_effect += self.conditional_expectation.fit(exog_predict=exog_predictors) * self.density.pdf(data_predict=z_discrete)
+                    causal_effect += self.conditional_expectation.fit(data_predict=exog_predictors.values)[0] * self.density.pdf(data_predict=z_discrete.values)
             return causal_effect
         elif self.continuous_Z:
             continuous_Z_ranges = [self.support[var] for var in self.continuous_Z]
