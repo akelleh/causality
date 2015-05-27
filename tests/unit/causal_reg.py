@@ -145,6 +145,48 @@ class TestCausalEffect(TestAPI):
         assert( abs( p - 0.25 ) < 0.05 )
 
 
+    def test_expectation_continuous(self):
+        causes = ['c']
+        effects = ['d']
+        admissable_set = ['a']
+        variable_types={'a': 'c','b': 'c','c': 'c','d' : 'c'}
+        effect = CausalEffect(self.X,
+                    causes,
+                    effects,
+                    admissable_set,
+                    variable_types, 
+                    density=False, 
+                    expectation=True)
+
+        x = pd.DataFrame({ 'c' : [400]})
+        p1 = effect.expected_value(x)
+        print "E(d | do(c = 400) ): ", p1
+
+        x = pd.DataFrame({ 'c' : [600]})
+        p2 = effect.expected_value(x)
+        print "E(d | do(c = 600) ): ", p2
+        assert( abs( p2 - p1 ) / 200 < 0.5 )
 
 
+        causes = ['b']
+        effects = ['d']
+        admissable_set = ['a']
+        variable_types={'a': 'c','b': 'c','c': 'c','d' : 'c'}
+        effect = CausalEffect(self.X,
+                    causes,
+                    effects,
+                    admissable_set,
+                    variable_types, 
+                    density=False, 
+                    expectation=True)
+
+        x = pd.DataFrame({ 'b' : [400]})
+        p1 = effect.expected_value(x)
+        print "E(d | do(b = 400) ): ", p1
+
+        x = pd.DataFrame({ 'b' : [600]})
+        p2 = effect.expected_value(x)
+        print "E(d | do(b = 600) ): ",p2
+        #assert( abs( p - 0.25 ) < 0.05 )
+        assert( abs( ( p2 - p1 ) / 200 - 5. < 0.01 ) )
 

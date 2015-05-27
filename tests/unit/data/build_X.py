@@ -8,7 +8,6 @@ import matplotlib.pyplot as pp
 
 """ 
 generate some toy data where a -> b, a-> c, b -> d, and c doesn't effect d.
-find the effect of c on d.
 """
 
 n = 100
