@@ -85,6 +85,41 @@ class CausalEffect(object):
                 support[variable] = data_support[variable]
         return support
 
+    def biased_mutual_information(self, X, x1, x2):
+        """
+        compute the mutual information I(x1,x2) between x1 and x2 for continuous variables,
+        I(x1,x2) = H(x2) - H(x2 | x1)
+        """
+        conditional_density_vars = causes + admissable_set
+        self.causes = causes
+        self.effects = effects
+        self.admissable_set = admissable_set
+        self.conditional_density_vars = conditional_density_vars
+
+        dep_type      = [self.variable_types[x1]]
+        indep_type    = [self.variable_types[x2]]
+        density_types = [self.variable_types[var] for var in [x1,x2]] 
+
+        if 'c' not in density_types:
+            bw = 'cv_ml'
+        else:
+            bw = 'normal_reference'
+        density = KDEMultivariate(X[[x2]],
+                                  var_type=''.join(dep_type),
+                                  bw=bw)
+        conditional_density = KDEMultivariateConditional(endog=X[x2],
+                                                         exog=X[x1],
+                                                         dep_type=''.join(dep_type),
+                                                         indep_type=''.join(indep_type),
+                                                         bw=bw)
+        Hx2 = 
+        Hx2givenx1 =
+        
+    def mi_integration_function(self, *args):
+                        
+        
+ 
+
         
     def integration_function(self,*args):
         # takes continuous z, discrete z, then x
@@ -186,11 +221,11 @@ if __name__ == "__main__":
         find the effect of c on d.
         """
 
-        n = 5000
+        n = 1000
         a = npr.beta(2.5, 2.5, n)
         b = npr.binomial( 1000, a)
         c = npr.binomial( 1000, a)
-        d = 5. * b
+        d = 5. * b + 2. * c
         X = pd.DataFrame( { 'a' : a, 'b' : b, 'c' : c, 'd' : d})   
         causes = ['c']
         effects = ['d']
@@ -198,9 +233,30 @@ if __name__ == "__main__":
         variable_types={'a': 'c','b': 'c','c': 'c','d' : 'c'}
         conditional_density_vars = causes + admissable_set
 
-
-        effect = CausalEffect(X,causes,effects,admissable_set,variable_types)
+        effect = CausalEffect(X,causes,effects,admissable_set,variable_types,expectation=True)
         pp.plot( xrange(400,601,50), [effect.expected_value(pd.DataFrame({'c' : [xi]})) for xi in xrange(400,601,50)])
+        pp.xlabel( 'c' )
+        pp.ylabel( 'd' )
+        pp.title( 'c on d controlling a: slope = 2')
+        pp.show()  
+
+        n = 1000
+        a = npr.beta(2.5, 2.5, n)
+        b = npr.binomial( 1000, a)
+        c = npr.binomial( 1000, a)
+        d = 5. * b + 2. * c
+        X = pd.DataFrame( { 'a' : a, 'b' : b, 'c' : c, 'd' : d})   
+        causes = ['c']
+        effects = ['d']
+        admissable_set = []
+        variable_types={'a': 'c','b': 'c','c': 'c','d' : 'c'}
+        conditional_density_vars = causes + admissable_set
+
+        effect = CausalEffect(X,causes,effects,admissable_set,variable_types,expectation=True)
+        pp.plot( xrange(400,601,50), [effect.expected_value(pd.DataFrame({'c' : [xi]})) for xi in xrange(400,601,50)])
+        pp.xlabel( 'c' )
+        pp.ylabel( 'd' )
+        pp.title( 'c on d not controlling a')
         pp.show()  
 
 
