@@ -3,7 +3,7 @@ from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional,
 from statsmodels.nonparametric.kernel_regression import KernelReg
 import itertools
 from scipy.integrate import nquad
-
+import numpy as np
 
 class CausalEffect(object):
     def __init__(self, X, causes, effects, admissable_set=[], variable_types=None, expectation=False, density=True):
@@ -90,11 +90,8 @@ class CausalEffect(object):
         compute the mutual information I(x1,x2) between x1 and x2 for continuous variables,
         I(x1,x2) = H(x2) - H(x2 | x1)
         """
-        conditional_density_vars = causes + admissable_set
-        self.causes = causes
-        self.effects = effects
-        self.admissable_set = admissable_set
-        self.conditional_density_vars = conditional_density_vars
+        self.x1 = x1
+        self.x2 = x2
 
         dep_type      = [self.variable_types[x1]]
         indep_type    = [self.variable_types[x2]]
@@ -104,20 +101,42 @@ class CausalEffect(object):
             bw = 'cv_ml'
         else:
             bw = 'normal_reference'
-        density = KDEMultivariate(X[[x2]],
+        self.mi_density = KDEMultivariate(X[[x2]],
                                   var_type=''.join(dep_type),
                                   bw=bw)
-        conditional_density = KDEMultivariateConditional(endog=X[x2],
+        self.mi_conditional_density = KDEMultivariateConditional(endog=X[x2],
                                                          exog=X[x1],
                                                          dep_type=''.join(dep_type),
                                                          indep_type=''.join(indep_type),
                                                          bw=bw)
-        Hx2 = 
-        Hx2givenx1 =
+        self.x1_integration_density = KDEMultivariate(X[[x2]],
+                                  var_type=''.join(dep_type),
+                                  bw=bw)
+        x2_range = [self.support[x2] ]
+        self.integration_density = self.mi_density
+        self.cond_integration_density = self.mi_conditional_density
+        Hx2 = nquad(self.entropy_integration_function, x2_range)[0]
+        print "H%s" % x2 ,Hx2 
+        x1x2_range = [self.support[x1], self.support[x2]]
+        Hx2givenx1 = nquad(self.entropy_integration_function, x1x2_range)[0]
+        print "H%s|%s" % (x2, x1), Hx2givenx1
+        return Hx2 - Hx2givenx1
         
-    def mi_integration_function(self, *args):
-                        
-        
+    def entropy_integration_function(self, *args):
+        if len( args ) == 2:
+            var = [self.x1, self.x2]
+        elif len(args) == 1:
+            var = [self.x2]
+        else:
+            raise Exception( "Too few args in entropy integration" )
+        data = pd.DataFrame( {k : [v] for k, v in zip(var, args) } )
+        if len(args) == 2:
+            p = self.cond_integration_density.pdf(exog_predict=data[self.x1],
+                                    endog_predict=data[self.x2]) 
+            return - self.x1_integration_density.pdf( data_predict=data[self.x1] ) * p * np.log(p)
+        else:
+            p = self.integration_density.pdf( data_predict=data[self.x2] )
+            return - p * np.log( p ) 
  
 
         
