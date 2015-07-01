@@ -3,7 +3,7 @@ from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional,
 from statsmodels.nonparametric.kernel_regression import KernelReg
 import itertools
 from scipy.integrate import nquad
-
+import numpy as np
 
 class CausalEffect(object):
     def __init__(self, X, causes, effects, admissable_set=[], variable_types=None, expectation=False, density=True):
@@ -84,6 +84,60 @@ class CausalEffect(object):
             else:
                 support[variable] = data_support[variable]
         return support
+
+    def biased_mutual_information(self, X, x1, x2):
+        """
+        compute the mutual information I(x1,x2) between x1 and x2 for continuous variables,
+        I(x1,x2) = H(x2) - H(x2 | x1)
+        """
+        self.x1 = x1
+        self.x2 = x2
+
+        dep_type      = [self.variable_types[x1]]
+        indep_type    = [self.variable_types[x2]]
+        density_types = [self.variable_types[var] for var in [x1,x2]] 
+
+        if 'c' not in density_types:
+            bw = 'cv_ml'
+        else:
+            bw = 'normal_reference'
+        self.mi_density = KDEMultivariate(X[[x2]],
+                                  var_type=''.join(dep_type),
+                                  bw=bw)
+        self.mi_conditional_density = KDEMultivariateConditional(endog=X[x2],
+                                                         exog=X[x1],
+                                                         dep_type=''.join(dep_type),
+                                                         indep_type=''.join(indep_type),
+                                                         bw=bw)
+        self.x1_integration_density = KDEMultivariate(X[[x2]],
+                                  var_type=''.join(dep_type),
+                                  bw=bw)
+        x2_range = [self.support[x2] ]
+        self.integration_density = self.mi_density
+        self.cond_integration_density = self.mi_conditional_density
+        Hx2 = nquad(self.entropy_integration_function, x2_range)[0]
+        print "H%s" % x2 ,Hx2 
+        x1x2_range = [self.support[x1], self.support[x2]]
+        Hx2givenx1 = nquad(self.entropy_integration_function, x1x2_range)[0]
+        print "H%s|%s" % (x2, x1), Hx2givenx1
+        return Hx2 - Hx2givenx1
+        
+    def entropy_integration_function(self, *args):
+        if len( args ) == 2:
+            var = [self.x1, self.x2]
+        elif len(args) == 1:
+            var = [self.x2]
+        else:
+            raise Exception( "Too few args in entropy integration" )
+        data = pd.DataFrame( {k : [v] for k, v in zip(var, args) } )
+        if len(args) == 2:
+            p = self.cond_integration_density.pdf(exog_predict=data[self.x1],
+                                    endog_predict=data[self.x2]) 
+            return - self.x1_integration_density.pdf( data_predict=data[self.x1] ) * p * np.log(p)
+        else:
+            p = self.integration_density.pdf( data_predict=data[self.x2] )
+            return - p * np.log( p ) 
+ 
 
         
     def integration_function(self,*args):
@@ -186,11 +240,11 @@ if __name__ == "__main__":
         find the effect of c on d.
         """
 
-        n = 5000
+        n = 1000
         a = npr.beta(2.5, 2.5, n)
         b = npr.binomial( 1000, a)
         c = npr.binomial( 1000, a)
-        d = 5. * b
+        d = 5. * b + 2. * c
         X = pd.DataFrame( { 'a' : a, 'b' : b, 'c' : c, 'd' : d})   
         causes = ['c']
         effects = ['d']
@@ -198,9 +252,30 @@ if __name__ == "__main__":
         variable_types={'a': 'c','b': 'c','c': 'c','d' : 'c'}
         conditional_density_vars = causes + admissable_set
 
-
-        effect = CausalEffect(X,causes,effects,admissable_set,variable_types)
+        effect = CausalEffect(X,causes,effects,admissable_set,variable_types,expectation=True)
         pp.plot( xrange(400,601,50), [effect.expected_value(pd.DataFrame({'c' : [xi]})) for xi in xrange(400,601,50)])
+        pp.xlabel( 'c' )
+        pp.ylabel( 'd' )
+        pp.title( 'c on d controlling a: slope = 2')
+        pp.show()  
+
+        n = 1000
+        a = npr.beta(2.5, 2.5, n)
+        b = npr.binomial( 1000, a)
+        c = npr.binomial( 1000, a)
+        d = 5. * b + 2. * c
+        X = pd.DataFrame( { 'a' : a, 'b' : b, 'c' : c, 'd' : d})   
+        causes = ['c']
+        effects = ['d']
+        admissable_set = []
+        variable_types={'a': 'c','b': 'c','c': 'c','d' : 'c'}
+        conditional_density_vars = causes + admissable_set
+
+        effect = CausalEffect(X,causes,effects,admissable_set,variable_types,expectation=True)
+        pp.plot( xrange(400,601,50), [effect.expected_value(pd.DataFrame({'c' : [xi]})) for xi in xrange(400,601,50)])
+        pp.xlabel( 'c' )
+        pp.ylabel( 'd' )
+        pp.title( 'c on d not controlling a')
         pp.show()  
 
 
