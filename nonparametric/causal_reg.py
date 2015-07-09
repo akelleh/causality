@@ -162,6 +162,10 @@ class DataSet(object):
 
 
     def entropy_integration_function(self, *args):
+        """
+        This is the function integrated to give an entropy for mutual information
+        calculations.
+        """
         if len( args ) == 2:
             var = [self.x1, self.x2]
         elif len(args) == 1:
