@@ -1,9 +1,189 @@
 import pandas as pd
 from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional, KDEMultivariate
+from statsmodels.nonparametric.kde import KDEUnivariate
 from statsmodels.nonparametric.kernel_regression import KernelReg
 import itertools
 from scipy.integrate import nquad
+from scipy import stats
 import numpy as np
+from multiprocessing import Pool
+
+
+def I_sample(args):
+    x1_sample,x2_sample,x1,x2,variable_types = args
+    null_X = pd.DataFrame( { x1 : x1_sample, x2 : x2_sample } )
+    null_model_data = DataSet(null_X, variable_types)
+    null_I = null_model_data.biased_mutual_information(x1, x2, p=False)
+    print null_I
+    return null_I
+
+class DataSet(object):
+    def __init__(self, X, variable_types, edgelist=None):
+        """
+        This object represents the dataset.  It holds the DataFrame
+        and the edgelist that has been inferred for it.  It contains 
+        utility functions for operating on the data, like measuring 
+        mutual information.
+        """
+        self.X = X
+        self.variable_types = variable_types
+        if 'c' not in variable_types.values():
+            bw = 'cv_ml'
+        else:
+            bw = 'normal_reference'
+
+        self.pdf_estimate = self.density = KDEMultivariate(X, 
+                                  var_type=''.join([variable_types[var] for var in X.columns]),
+                                  bw=bw)
+        self.support = self.__get_support()
+
+
+    def __get_support(self):
+        """
+        find the smallest cube around which the densities are supported,
+        allowing a little flexibility for variables with larger bandwidths.
+        """
+        data_support = { variable : (self.X[variable].min(), self.X[variable].max()) for variable in self.X.columns}
+        variable_bandwidths = { variable : bw for variable, bw in zip(self.X.columns, self.pdf_estimate.bw)}
+        support = {}
+        for variable in self.X.columns:
+            if self.variable_types[variable] == 'c':
+                lower_support = data_support[variable][0] - 10. * variable_bandwidths[variable]
+                upper_support = data_support[variable][1] + 10. * variable_bandwidths[variable]
+                support[variable] = (lower_support, upper_support)
+            else:
+                support[variable] = data_support[variable]
+        return support
+
+
+    def biased_mutual_information(self, x1, x2, verbose=False, p=False, p_value_trials=100):
+        """
+        compute the mutual information I(x1,x2) between x1 and x2 for continuous variables,
+        I(x1,x2) = H(x2) - H(x2 | x1) by using a kernel density estimate for the densities,
+        and calculating the entropies with the biased estimator of integrating -p log p.
+        """
+        self.x1 = x1
+        self.x2 = x2
+
+        dep_type      = [self.variable_types[x1]]
+        indep_type    = [self.variable_types[x2]]
+        density_types = [self.variable_types[var] for var in [x1,x2]] 
+
+        if 'c' not in density_types:
+            bw = 'cv_ml'
+        else:
+            bw = 'normal_reference'
+        if verbose:
+            print "estimating %s density" % x2
+        self.mi_density = KDEMultivariate(self.X[[x2]],
+                                  var_type=''.join(dep_type),
+                                  bw=bw)
+        if verbose:
+            print "estimating %s|%s density" % (x2,x1)
+        self.mi_conditional_density = KDEMultivariateConditional(endog=self.X[x2],
+                                                         exog=self.X[x1],
+                                                         dep_type=''.join(dep_type),
+                                                         indep_type=''.join(indep_type),
+                                                         bw=bw)
+        if verbose:
+            print "integrating for marginal entropy"
+        self.x1_integration_density = KDEMultivariate(self.X[[x2]],
+                                  var_type=''.join(dep_type),
+                                  bw=bw)
+        x2_range = [self.support[x2] ]
+        self.integration_density = self.mi_density
+        self.cond_integration_density = self.mi_conditional_density
+        Hx2 = nquad(self.entropy_integration_function, x2_range)[0]
+        if verbose:
+            print "H%s" % x2 ,Hx2 
+            print "integrating for conditional entropy"
+        x1x2_range = [self.support[x1], self.support[x2]]
+        Hx2givenx1 = nquad(self.entropy_integration_function, x1x2_range)[0]
+        if verbose:
+            print "H%s|%s" % (x2, x1), Hx2givenx1
+        if p:
+            if verbose:
+                print "calculating p value with %d trials" % p_value_trials
+            p_value = self.__I_pvalue(x1,x2,Hx2 - Hx2givenx1, p_value_trials)
+        if p == True and verbose:
+            print "p I > I_measured: ", p_value
+        if p == True:
+            return Hx2 - Hx2givenx1, p_value
+        return Hx2 - Hx2givenx1
+
+    def __I_pvalue(self, x1, x2, I_measured, p_value_trials):
+        """
+        Calculate the probability that the empirical mutual information is 
+        at least as extreme as the measured value (I >= I_measured) given that
+        the null hypothesis I_actual = 0 is true.  Do this by generating a 
+        sample dataset from the product of the empirical marginal distributions,
+        measuring I for each dataset, and then estimating the density of I to get
+        the distribution being sampled from under the null hypothesis.
+        """
+        p1 = KDEUnivariate(self.X[[x1]])
+        p2 = KDEUnivariate(self.X[[x2]])
+        p1.fit()
+        p2.fit()
+        class P1_dist(stats.rv_continuous):
+            def _pdf(self, x):
+                return p1.evaluate(x)
+            def _stats(self):
+                return 0.,0.,0.,0.
+        class P2_dist(stats.rv_continuous):
+            def _pdf(self, x):
+                return p2.evaluate(x)
+            def _stats(self):
+                return 0.,0.,0.,0.
+
+        p1_dist = P1_dist()
+        p2_dist = P2_dist()
+
+        null_I_samples = []
+        args = [(p1_dist.rvs(size=self.X.count()[x1]), p2_dist.rvs(size=self.X.count()[x2]), x1, x2, self.variable_types) for i in range(p_value_trials)]
+        p = Pool(processes=4)
+        null_I_samples = p.map(I_sample, args)
+        #for i in range(p_value_trials):
+        #    print "trial %d" % i
+        #    null_X = pd.DataFrame( { x1 : p1_dist.rvs(size=self.X.count()[x1]), x2 : p2_dist.rvs(size=self.X.count()[x2]) } )
+        #    null_model_data = DataSet(null_X, self.variable_types)
+        #    null_I = null_model_data.biased_mutual_information(x1, x2, p=False)
+        #    print null_I
+        #    null_I_samples.append(null_I)
+        print null_I_samples
+        I_dist = KDEUnivariate(null_I_samples)
+        I_dist.fit()
+        class I_pdf(stats.rv_continuous):
+            def _pdf(self,x):
+                return I_dist.evaluate(x)
+            def _stats(self):
+                0.,0.,0.,0.
+        i_pdf = I_pdf()
+        return 1. - i_pdf.cdf(I_measured)
+
+
+    def entropy_integration_function(self, *args):
+        """
+        This is the function integrated to give an entropy for mutual information
+        calculations.
+        """
+        if len( args ) == 2:
+            var = [self.x1, self.x2]
+        elif len(args) == 1:
+            var = [self.x2]
+        else:
+            raise Exception( "Too few args in entropy integration" )
+        data = pd.DataFrame( {k : [v] for k, v in zip(var, args) } )
+        if len(args) == 2:
+            p = self.cond_integration_density.pdf(exog_predict=data[self.x1],
+                                    endog_predict=data[self.x2]) 
+            return - self.x1_integration_density.pdf( data_predict=data[self.x1] ) * p * np.log(p)
+        else:
+            p = self.integration_density.pdf( data_predict=data[self.x2] )
+            return - p * np.log( p ) 
+
+
+
+
 
 class CausalEffect(object):
     def __init__(self, X, causes, effects, admissable_set=[], variable_types=None, expectation=False, density=True):
@@ -84,60 +264,6 @@ class CausalEffect(object):
             else:
                 support[variable] = data_support[variable]
         return support
-
-    def biased_mutual_information(self, X, x1, x2):
-        """
-        compute the mutual information I(x1,x2) between x1 and x2 for continuous variables,
-        I(x1,x2) = H(x2) - H(x2 | x1)
-        """
-        self.x1 = x1
-        self.x2 = x2
-
-        dep_type      = [self.variable_types[x1]]
-        indep_type    = [self.variable_types[x2]]
-        density_types = [self.variable_types[var] for var in [x1,x2]] 
-
-        if 'c' not in density_types:
-            bw = 'cv_ml'
-        else:
-            bw = 'normal_reference'
-        self.mi_density = KDEMultivariate(X[[x2]],
-                                  var_type=''.join(dep_type),
-                                  bw=bw)
-        self.mi_conditional_density = KDEMultivariateConditional(endog=X[x2],
-                                                         exog=X[x1],
-                                                         dep_type=''.join(dep_type),
-                                                         indep_type=''.join(indep_type),
-                                                         bw=bw)
-        self.x1_integration_density = KDEMultivariate(X[[x2]],
-                                  var_type=''.join(dep_type),
-                                  bw=bw)
-        x2_range = [self.support[x2] ]
-        self.integration_density = self.mi_density
-        self.cond_integration_density = self.mi_conditional_density
-        Hx2 = nquad(self.entropy_integration_function, x2_range)[0]
-        print "H%s" % x2 ,Hx2 
-        x1x2_range = [self.support[x1], self.support[x2]]
-        Hx2givenx1 = nquad(self.entropy_integration_function, x1x2_range)[0]
-        print "H%s|%s" % (x2, x1), Hx2givenx1
-        return Hx2 - Hx2givenx1
-        
-    def entropy_integration_function(self, *args):
-        if len( args ) == 2:
-            var = [self.x1, self.x2]
-        elif len(args) == 1:
-            var = [self.x2]
-        else:
-            raise Exception( "Too few args in entropy integration" )
-        data = pd.DataFrame( {k : [v] for k, v in zip(var, args) } )
-        if len(args) == 2:
-            p = self.cond_integration_density.pdf(exog_predict=data[self.x1],
-                                    endog_predict=data[self.x2]) 
-            return - self.x1_integration_density.pdf( data_predict=data[self.x1] ) * p * np.log(p)
-        else:
-            p = self.integration_density.pdf( data_predict=data[self.x2] )
-            return - p * np.log( p ) 
- 
 
         
     def integration_function(self,*args):
