@@ -7,7 +7,6 @@ from scipy.integrate import nquad
 from scipy import stats
 import numpy as np
 from multiprocessing import Pool
-#from numpy.fft import rfftn, irfftn
 from scipy.signal import fftconvolve
 from scipy.stats import multivariate_normal
 from scipy.interpolate import LinearNDInterpolator, interpn
@@ -59,7 +58,11 @@ class MutualInformation(object):
                 entropy += - np.log( pi ) / float(len(X))
         return entropy
     
-
+    def estimate(self, X, subset_1, subset_2):
+        H1 = self.get_subset_entropy(X, subset_1)
+        H2 = self.get_subset_entropy(X, subset_2)
+        H12 = self.get_subset_entropy(X, subset_1 + subset_2)
+        return H1 + H2 - H12
 
 class DataSet(object):
     def __init__(self, X, variable_types, edgelist=None):
