@@ -7,7 +7,10 @@ from scipy.integrate import nquad
 from scipy import stats
 import numpy as np
 from multiprocessing import Pool
-
+#from numpy.fft import rfftn, irfftn
+from scipy.signal import fftconvolve
+from scipy.stats import multivariate_normal
+from scipy.interpolate import LinearNDInterpolator, interpn
 
 def I_sample(args):
     x1_sample,x2_sample,x1,x2,variable_types = args
@@ -16,6 +19,47 @@ def I_sample(args):
     null_I = null_model_data.biased_mutual_information(x1, x2, p=False)
     print null_I
     return null_I
+
+
+class MutualInformation(object):
+    def get_discrete_kernel(self, edges, bw, mean):
+        centers = []
+        for edge in edges:
+            centers.append([edge[i] for i in range(len(edge)) ])
+        kernel = np.zeros([len(center) for center in centers])
+        mean   = [0. for i in centers]
+        index_generator = [xrange(len(center)) for center in centers]
+        points = []
+        for indexes, xi in zip(itertools.product(*index_generator),itertools.product(*centers)):
+            points.append(np.array(xi))
+        kernel = multivariate_normal.pdf(points,mean=mean,cov=bw).reshape([len(center) for center in centers])
+        return kernel / float(sum(kernel.flatten()))
+
+    def estimate_discrete_density(self, X):
+        heatmap, edges = np.histogramdd(X.values, bins=50)
+        bin_sizes = [ edge[1] - edge[0] for edge in edges]
+        new_edges = []
+        for i, (edge, bin_size) in enumerate(zip(edges, bin_sizes)):
+            new_edges.append(list(edge) + [edge[-1] + bin_size])
+        heatmap, new_edges= np.histogramdd(X.values, bins=new_edges)
+        dA = 1.
+        for bin_size in bin_sizes:
+            dA *= bin_size
+        bw = np.sqrt(X.var()) * 1.06 * len(X)**(-1./5.)
+        kernel = self.get_discrete_kernel(edges,bw, X.mean());
+        kernel_estimate = fftconvolve(heatmap, kernel, mode='same')
+        return kernel_estimate / (dA*float(len(X))), edges
+
+    def get_subset_entropy(self, X, subset):
+        kernel_estimate, points= self.estimate_discrete_density(X[subset])
+        p = interpn(points, kernel_estimate, X[subset], method='linear', fill_value=0.)
+        entropy = 0.
+        for pi in p:
+            if pi > 0:
+                entropy += - np.log( pi ) / float(len(X))
+        return entropy
+    
+
 
 class DataSet(object):
     def __init__(self, X, variable_types, edgelist=None):
