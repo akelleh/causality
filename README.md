@@ -6,7 +6,7 @@ This package contains tools for causal analysis using observational (rather than
 
 Assuming you have pip installed, just run
 ```
-pip install git+git://github.com/akelleh/causality.git
+pip install causality 
 ```
 
 
