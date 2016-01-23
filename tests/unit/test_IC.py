@@ -1,12 +1,14 @@
 from tests.unit import TestAPI
+import itertools
 
 import numpy.random
 import pandas as pd
+import networkx as nx
 
 from causality.inference.search import IC
 from causality.inference.independence_tests import RobustRegressionTest
 
-TEST_SET_SIZE = 1000
+TEST_SET_SIZE = 2000
 
 class Test_IC(TestAPI):
 
@@ -24,6 +26,7 @@ class Test_IC(TestAPI):
                                 'x4' : set(['x2','x3','x5']),
                                 'x5' : set(['x4'])}
         self.true_colliders = set([('x3','x4'), ('x2','x4')])
+        self.true_marked = set([('x4','x5')])
         self.ic = IC(RobustRegressionTest, self.X, self.variable_types)
 
     def test_build_g(self):
@@ -56,8 +59,30 @@ class Test_IC(TestAPI):
             else:
                 assert((i,j) not in self.true_colliders and (j,i) not in self.true_colliders)
 
+    def test_separating_set(self):
+        self.ic._build_g()
+        self.ic._find_skeleton()
+        for xi, xj in itertools.combinations(self.variable_types.keys(), 2):
+            if not self.ic._g.has_edge(xi,xj):
+                if (xi,xj) in self.ic.separating_sets:
+                    z = self.ic.separating_sets[(xi,xj)]
+                else:
+                    z = self.ic.separating_sets[(xj,xi)]
+                test = self.ic.independence_test([xj],[xi], list(z), self.X, self.ic.alpha)
+                assert(test.independent())
+
     def test_marked_directed_path(self):
-        pass
+        marked_edges = [('a','b'),('b','c'),('c','d')]
+        unmarked_edges = [('a','d')]
+        nodes = ['a','b','c','d']
+        g = nx.Graph()
+        g.add_edges_from(marked_edges, marked=True)
+        g.add_edges_from(unmarked_edges, marked=False)
+        for i, j in (marked_edges + unmarked_edges):
+            g.edge[i][j]['arrows'] = [j]
+        self.ic._g = g
+        assert(self.ic._marked_directed_path('a','d'))
+        assert(not self.ic._marked_directed_path('d','a'))
 
     def test_recursion_rule_1(self):
         pass
@@ -65,6 +90,11 @@ class Test_IC(TestAPI):
     def test_recursion_rule_2(self):
         pass
 
-    def test_separating_set(self):
-        pass
-        
+    def test_search(self):
+        self.ic.search()
+        for i, j in self.ic._g.edges():
+            if self.ic._g.edge[i][j]['marked']:
+                assert( (i,j) in self.true_marked or (j,i) in self.true_marked)
+            else:
+                assert( (i,j) not in self.true_marked and (j,i) not in self.true_marked)
+                 
