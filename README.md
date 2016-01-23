@@ -1,17 +1,6 @@
 # Causality
-This package contains tools for causal analysis.
 
-## Nonparametric Effects Estimation
-
-The `causality.nonparametric` module contains a tool for non-parametrically estimating a causal distribution from an observational data set. You can supply an "admissable set" of variables for controlling, and the measure either the causal effect distribution of an effect given the cause, or the expected value of the effect given the cause.
-
-This repository is in its early phases.  The run-time for the tests is long.  Many optimizations will be made over the course of the coming weeks, including
-* Implement fast mutual information calculation, O( N log N )
-* Speed up integrating out variables for controlling
-* Take a user-supplied graph, and deduce the admissable set
-* Front-door criterion method for determining causal effects
-
-
+This package contains tools for causal analysis using observational (rather than experimental) datasets.
 
 ## Causal Inference
 
@@ -60,5 +49,14 @@ Now, we have the inferred graph stored in `graph`.  In this graph, each variable
 We can see the edges from `'x2'` to `'x4'`, `'x3'` to `'x4'`, and `'x4'` to `'x5'` are all oriented toward the second of each pair.  Additionally, we see that the edge from `'x4'` to `'x5'` satisfies the local criterion for genuine causation.  This matches the structure given in figure `2.3(d)` in Pearl (2000).
 
 
+## Nonparametric Effects Estimation
+
+The `causality.nonparametric` module contains a tool for non-parametrically estimating a causal distribution from an observational data set. You can supply an "admissable set" of variables for controlling, and the measure either the causal effect distribution of an effect given the cause, or the expected value of the effect given the cause.
+
+This repository is in its early phases.  The run-time for the tests is long.  Many optimizations will be made over the course of the coming weeks, including
+* Implement fast mutual information calculation, O( N log N )
+* Speed up integrating out variables for controlling
+* Take a user-supplied graph, and deduce the admissable set
+* Front-door criterion method for determining causal effects
 
 Pearl, Judea. _Causality_.  Cambridge University Press, (2000).
