@@ -268,7 +268,7 @@ class CausalEffect(object):
             self.density = KDEMultivariate(X[admissable_set], 
                                   var_type=''.join(density_types),
                                   bw=bw)
-        #if density:
+        
         self.conditional_density = KDEMultivariateConditional(endog=X[effects],
                                                          exog=X[conditional_density_vars],
                                                          dep_type=''.join(dep_type),
@@ -403,56 +403,3 @@ class CausalEffect(object):
         else:
             return self.conditional_expectation.fit(data_predict=x[self.causes])[0]
        
-
-
-if __name__ == "__main__":
-        import numpy.random as npr
-        import matplotlib.pyplot as pp
-        """
-        generate some toy data where a -> b, a-> c, b -> d, and c doesn't effect d.
-        find the effect of c on d.
-        """
-
-        n = 1000
-        a = npr.beta(2.5, 2.5, n)
-        b = npr.binomial( 1000, a)
-        c = npr.binomial( 1000, a)
-        d = 5. * b + 2. * c
-        X = pd.DataFrame( { 'a' : a, 'b' : b, 'c' : c, 'd' : d})   
-        causes = ['c']
-        effects = ['d']
-        admissable_set = ['a']
-        variable_types={'a': 'c','b': 'c','c': 'c','d' : 'c'}
-        conditional_density_vars = causes + admissable_set
-
-        effect = CausalEffect(X,causes,effects,admissable_set,variable_types,expectation=True)
-        pp.plot( xrange(400,601,50), [effect.expected_value(pd.DataFrame({'c' : [xi]})) for xi in xrange(400,601,50)])
-        pp.xlabel( 'c' )
-        pp.ylabel( 'd' )
-        pp.title( 'c on d controlling a: slope = 2')
-        pp.show()  
-
-        n = 1000
-        a = npr.beta(2.5, 2.5, n)
-        b = npr.binomial( 1000, a)
-        c = npr.binomial( 1000, a)
-        d = 5. * b + 2. * c
-        X = pd.DataFrame( { 'a' : a, 'b' : b, 'c' : c, 'd' : d})   
-        causes = ['c']
-        effects = ['d']
-        admissable_set = []
-        variable_types={'a': 'c','b': 'c','c': 'c','d' : 'c'}
-        conditional_density_vars = causes + admissable_set
-
-        effect = CausalEffect(X,causes,effects,admissable_set,variable_types,expectation=True)
-        pp.plot( xrange(400,601,50), [effect.expected_value(pd.DataFrame({'c' : [xi]})) for xi in xrange(400,601,50)])
-        pp.xlabel( 'c' )
-        pp.ylabel( 'd' )
-        pp.title( 'c on d not controlling a')
-        pp.show()  
-
-
-
- 
-
-    
