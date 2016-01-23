@@ -1,15 +1,10 @@
 import pandas as pd
 from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional, KDEMultivariate
-from statsmodels.nonparametric.kde import KDEUnivariate
 from statsmodels.nonparametric.kernel_regression import KernelReg
 import itertools
 from scipy.integrate import nquad
 from scipy import stats
 import numpy as np
-from multiprocessing import Pool
-from scipy.signal import fftconvolve
-from scipy.stats import multivariate_normal
-from scipy.interpolate import LinearNDInterpolator, interpn
 
 
 class CausalEffect(object):
