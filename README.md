@@ -4,20 +4,10 @@ This package contains tools for causal analysis using observational (rather than
 
 ## Installation
 
-First, clone the package:
+Assuming you have pip installed, just run
 ```
-git clone git@github.com:akelleh/causality ./causality
+pip install git+git://github.com/akelleh/causality.git
 ```
-
-Then, cd to the directory
-```
-cd ./causality
-```
-and install the requirements.  Assuming you have pip installed,
-```
-pip install -r requirements.txt
-```
-If you want to work from a different directory, you'll have to add the cwd to your pythonpath.  Otherwise, you should just be able to import the package from here.
 
 
 ## Causal Inference
