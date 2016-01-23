@@ -26,6 +26,8 @@ class IC():
             R2_added_arrows = self._apply_recursion_rule_2()
             added_arrows = R1_added_arrows or R2_added_arrows
 
+        return self._g
+
     def _build_g(self):
         """
         This initializes a complete graph over the variables.  We'll run
