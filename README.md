@@ -18,6 +18,9 @@ The package will contain various algorithms for inferring causal DAGs.  Currentl
 To run a graph search on a dataset, you can use the algorithms like (using IC\* as an example):
 
 ```python
+import numpy
+import pandas as pd
+
 from causality.inference.search import IC
 from causality.inference.independence_tests import RobustRegressionTest
 
@@ -42,3 +45,14 @@ ic_algorithm = IC(RobustRegressionTest, X, variable_types)
 graph = ic_algorithm.search()
 ```
 
+Now, we have the inferred graph stored in `graph`.  In this graph, each variable is a node (named from the DataFrame columns), and each edge represents statistical dependence between the nodes that can't be eliminated by conditioning on the variables specified for the search.  If an edge can be oriented with the data available, the arrowhead is indicated in `'arrows'`.  If the edge also satisfies the local criterion for genuine causation, then that directed edge will have `marked=True`.  If we print the edges from the result of our search, we can see which edges are oriented, and which satisfy the local criterion for genuine causation:
+```python
+>>> graph.edges(data=True)
+[('x2', 'x1', {'arrows': [], 'marked': False}), 
+ ('x2', 'x4', {'arrows': ['x4'], 'marked': False}), 
+ ('x3', 'x1', {'arrows': [], 'marked': False}), 
+ ('x3', 'x4', {'arrows': ['x4'], 'marked': False}), 
+ ('x4', 'x5', {'arrows': ['x5'], 'marked': True})]
+```
+
+We can see the edges from `'x2'` to `'x4'`, `'x3'` to `'x4'`, and `'x4'` to `'x5'` are all oriented toward the second of each pair.  Additionally, we see that the edge from `'x4'` to `'x5'` satisfies the local criterion for genuine causation.
