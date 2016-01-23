@@ -2,6 +2,24 @@
 
 This package contains tools for causal analysis using observational (rather than experimental) datasets.
 
+## Installation
+
+First, clone the package:
+```
+git clone git@github.com:akelleh/causality ./causality
+```
+
+Then, cd to the directory
+```
+cd ./causality
+```
+and install the requirements.  Assuming you have pip installed,
+```
+pip install -r requirements.txt
+```
+If you want to work from a different directory, you'll have to add the cwd to your pythonpath.  Otherwise, you should just be able to import the package from here.
+
+
 ## Causal Inference
 
 The `causality.inference` module will contain various algorithms for inferring causal DAGs.  Currently (2016/01/23), the only algorithm implemented is the IC\* algorithm from Pearl (2000).  It has decent test coverage, but feel free to write some more!  I've left some stubs in `tests/unit/test\_IC.py`.
