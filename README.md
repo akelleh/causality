@@ -17,7 +17,7 @@ The package will contain various algorithms for inferring causal DAGs.  Currentl
 
 To run a graph search on a dataset, you can use the algorithms like (using IC\* as an example):
 
-```
+```python
 from causality.inference.search import IC
 from causality.inference.independence_tests import RobustRegressionTest
 
@@ -37,6 +37,7 @@ X = pd.DataFrame({'x1' : x1, 'x2' : x2, 'x3' : x3, 'x4' : x4, 'x5' : x5})
 # in the data frame.
 variable_types = {'x1' : 'c', 'x2' : 'c', 'x3' : 'c', 'x4' : 'c', 'x5' : 'c'}
 
+# run the search
 ic_algorithm = IC(RobustRegressionTest, X, variable_types)
 graph = ic_algorithm.search()
 ```
