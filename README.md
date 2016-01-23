@@ -7,5 +7,37 @@ This repository is in its early phases.  The run-time for the tests is long.  Ma
 * Implement fast mutual information calculation, O( N log N )
 * Speed up integrating out variables for controlling
 * Take a user-supplied graph, and deduce the admissable set
-* Various causal inference algorithms
 * Front-door criterion method for determining causal effects
+
+
+
+# Causal Inference
+
+The package will contain various algorithms for inferring causal DAGs.  Currently (2016/01/23), the only algorithm implemented is the IC\* algorithm from Pearl (2000).  
+
+To run a graph search on a dataset, you can use the algorithms like (using IC\* as an example):
+
+```
+from causality.inference.search import IC
+from causality.inference.independence_tests import RobustRegressionTest
+
+# generate some toy data:
+SIZE = 2000
+x1 = numpy.random.normal(size=SIZE)
+x2 = x1 + numpy.random.normal(size=SIZE)
+x3 = x1 + numpy.random.normal(size=SIZE)
+x4 = x2 + x3 + numpy.random.normal(size=SIZE)
+x5 = x5 = x4 + numpy.random.normal(size=SIZE)
+
+# load the data into a dataframe:
+X = pd.DataFrame({'x1' : x1, 'x2' : x2, 'x3' : x3, 'x4' : x4, 'x5' : x5})
+
+# define the variable types: 'c' is 'continuous'.  The variables defined here
+# are the ones the search is performed over  -- NOT all the variables defined
+# in the data frame.
+variable_types = {'x1' : 'c', 'x2' : 'c', 'x3' : 'c', 'x4' : 'c', 'x5' : 'c'}
+
+ic_algorithm = IC(RobustRegressionTest, X, variable_types)
+graph = ic_algorithm.search()
+```
+
