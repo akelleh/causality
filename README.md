@@ -1,6 +1,8 @@
 # Causality
 This package contains tools for causal analysis.
 
+## Nonparametric Effects Estimation
+
 The `causality.nonparametric` module contains a tool for non-parametrically estimating a causal distribution from an observational data set. You can supply an "admissable set" of variables for controlling, and the measure either the causal effect distribution of an effect given the cause, or the expected value of the effect given the cause.
 
 This repository is in its early phases.  The run-time for the tests is long.  Many optimizations will be made over the course of the coming weeks, including
@@ -11,9 +13,9 @@ This repository is in its early phases.  The run-time for the tests is long.  Ma
 
 
 
-# Causal Inference
+## Causal Inference
 
-The package will contain various algorithms for inferring causal DAGs.  Currently (2016/01/23), the only algorithm implemented is the IC\* algorithm from Pearl (2000).  It has decent test coverage, but feel free to write some more!  I've left some stubs in `tests/unit/test\_IC.py`.
+The `causality.inference` module will contain various algorithms for inferring causal DAGs.  Currently (2016/01/23), the only algorithm implemented is the IC\* algorithm from Pearl (2000).  It has decent test coverage, but feel free to write some more!  I've left some stubs in `tests/unit/test\_IC.py`.
 
 To run a graph search on a dataset, you can use the algorithms like (using IC\* as an example):
 
