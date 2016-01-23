@@ -55,4 +55,8 @@ Now, we have the inferred graph stored in `graph`.  In this graph, each variable
  ('x4', 'x5', {'arrows': ['x5'], 'marked': True})]
 ```
 
-We can see the edges from `'x2'` to `'x4'`, `'x3'` to `'x4'`, and `'x4'` to `'x5'` are all oriented toward the second of each pair.  Additionally, we see that the edge from `'x4'` to `'x5'` satisfies the local criterion for genuine causation.
+We can see the edges from `'x2'` to `'x4'`, `'x3'` to `'x4'`, and `'x4'` to `'x5'` are all oriented toward the second of each pair.  Additionally, we see that the edge from `'x4'` to `'x5'` satisfies the local criterion for genuine causation.  This matches the structure given in figure `2.3(d)` in Pearl (2000).
+
+
+
+Pearl, Judea. _Causality_.  Cambridge University Press, (2000).
