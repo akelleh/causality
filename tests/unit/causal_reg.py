@@ -2,7 +2,7 @@ import pandas as pd
 from scipy.integrate import nquad
 import numpy as np
 
-from nonparametric.causal_reg import CausalEffect
+from causality.nonparametric.causal_reg import CausalEffect
 from tests.unit import TestAPI 
 from tests.unit.settings import TOL
 
@@ -23,7 +23,6 @@ class TestCausalEffect(TestAPI):
         print p
         # p(d=1|do(c=0) = 0.45, p(d=1|c=0) = 0.40
         assert( abs( 0.45 - p ) < 0.02 )
-
 
     def test_pdf_no_adjustment(self):
         causes = ['c']
@@ -189,4 +188,3 @@ class TestCausalEffect(TestAPI):
         print "E(d | do(b = 600) ): ",p2
         #assert( abs( p - 0.25 ) < 0.05 )
         assert( abs( ( p2 - p1 ) / 200 - 5. < 0.01 ) )
-
