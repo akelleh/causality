@@ -5,7 +5,35 @@ import itertools
 from scipy.integrate import nquad
 from scipy import stats
 import numpy as np
+from networkx.algorithms import is_directed_acyclic_graph
 
+class AdjustForDirectCauses(object):
+    def __init__(self, g, X, causes, effects, variable_types=None, expectation=False, density=True):
+        if not is_directed_acyclic_graph(g):
+            raise Exception("Directed, Acyclic graph required.")
+        self.g = g  
+        self.causes = causes
+        self.effects = effects
+        self.find_predecessors()
+        self.admissable_set = self.predecessors
+        if self.assumptions_satisfied():
+            self.effect = CausalEffect(X, causes, effects, admissable_set=list(self.predecessors), 
+                                       variable_types=variable_types, expectation=expectation,
+                                       density=density)
+        else:
+            raise Exception("Adjustment assumptions not satisfied")
+
+    def find_predecessors(self):
+        predecessors = set()
+        for cause in self.causes:
+            predecessors = predecessors.union(self.g.predecessors(cause))
+        self.predecessors = predecessors - set(self.causes)
+
+    def assumptions_satisfied(self):
+        if len(set(self.effects).intersection(set(self.causes).union(self.predecessors))) == 0:
+            return True
+        else:
+            return False
 
 class CausalEffect(object):
     def __init__(self, X, causes, effects, admissable_set=[], variable_types=None, expectation=False, density=True):
@@ -137,7 +165,7 @@ class CausalEffect(object):
             return causal_effect
         elif self.continuous_Z:
             continuous_Z_ranges = [self.support[var] for var in self.continuous_Z]
-            causal_effect = nquad(self.integration_function,continuous_Z_ranges,args=tuple(x.values[0]))[0]
+            causal_effect, error = nquad(self.integration_function,continuous_Z_ranges,args=tuple(x.values[0]))
             return causal_effect
         else:
             return self.conditional_density.pdf(exog_predict=x[self.causes],endog_predict=x[self.effects])
@@ -173,7 +201,7 @@ class CausalEffect(object):
             return causal_effect
         elif self.continuous_Z:
             continuous_Z_ranges = [self.support[var] for var in self.continuous_Z]
-            causal_effect = nquad(self.expectation_integration_function,continuous_Z_ranges,args=tuple(x.values[0]))[0]
+            causal_effect, error = nquad(self.expectation_integration_function,continuous_Z_ranges,args=tuple(x.values[0]))
             return causal_effect
         else:
             return self.conditional_expectation.fit(data_predict=x[self.causes])[0]
