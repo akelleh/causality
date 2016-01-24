@@ -166,7 +166,6 @@ class CausalEffect(object):
         elif self.continuous_Z:
             continuous_Z_ranges = [self.support[var] for var in self.continuous_Z]
             causal_effect, error = nquad(self.integration_function,continuous_Z_ranges,args=tuple(x.values[0]))
-            print "error", error
             return causal_effect
         else:
             return self.conditional_density.pdf(exog_predict=x[self.causes],endog_predict=x[self.effects])
