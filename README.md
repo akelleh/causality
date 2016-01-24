@@ -61,10 +61,40 @@ We can see the edges from `'x2'` to `'x4'`, `'x3'` to `'x4'`, and `'x4'` to `'x5
 
 The `causality.nonparametric` module contains a tool for non-parametrically estimating a causal distribution from an observational data set. You can supply an "admissable set" of variables for controlling, and the measure either the causal effect distribution of an effect given the cause, or the expected value of the effect given the cause.
 
-This repository is in its early phases.  The run-time for the tests is long.  Many optimizations will be made over the course of the coming weeks, including
+I've recently added adjustment for direct causes, where you can estimate the causal effect of fixing a set of X variables on a set of Y variables by adjusting for the parents of X in your graph.  Using the dataset above, you can run this like
+```python
+from causality.nonparametric.causal_reg import AdjustForDirectCauses
+from networkx import DiGraph
+
+g = DiGraph()
+
+g.add_nodes_from(['x1','x2','x3','x4', 'x5'])
+g.add_edges_from([('x1','x2'),('x1','x3'),('x2','x4'),('x3','x4')])
+adjustment = AdjustForDirectCauses(g, X, ['x2'],['x3'],variable_types=variable_types)
+```
+
+Then, you can see the set of variables being adjusted for by
+```python
+>>> print adjustment.admissable_set
+set(['x1'])
+```
+If we hadn't adjusted for `'x1'` we would have incorrectly found that `'x2'` had a causal effect on `'x3'` due to the counfounding pathway `x2, x1, x3`.  Adjustment for `'x1'` removes this bias.
+
+You can see the causal effect of intervention, `P(x3|do(x2))` using the measured causal effect in `adjustment`,
+```python
+>>> x = pd.DataFrame({'x2' : [0.], 'x3' : [0.]})
+>>> print adjustment.effect.pdf(x)
+0.268915603296
+```
+
+Which is close to the correct value of `0.282` for a gaussian with mean 0. and variance 2.  If you adjust the value of `'x2'`, you'll find that the probability of `'x3'` doesn't change.  This is untrue with just the conditional distribution, `P(x3|x2)`, since in this case, observation and intervention are not equivalent.
+
+## Other Notes
+
+This repository is in its early phases.  The run-time for the tests is long.  Many optimizations will be made in the near future, including
 * Implement fast mutual information calculation, O( N log N )
 * Speed up integrating out variables for controlling
-* Take a user-supplied graph, and deduce the admissable set
+* Take a user-supplied graph, and find the set of admissable sets
 * Front-door criterion method for determining causal effects
 
 Pearl, Judea. _Causality_.  Cambridge University Press, (2000).
