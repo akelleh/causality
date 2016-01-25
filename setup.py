@@ -6,13 +6,13 @@ here = path.abspath(path.dirname(__file__))
 if os.path.exists('README.txt'):
     long_description = open('README.txt').read()
 else:
-    with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+    with open(path.join(here, 'doc/README.md'), encoding='utf-8') as f:
         long_description = f.read()
 
 setup(
     name='causality',
 
-    version='0.1',
+    version='0.2',
 
     description='Tools for causal analysis',
     long_description=long_description,
@@ -40,7 +40,7 @@ setup(
 
     keywords='causality data analysis inference causal graphs DAG',
 
-    packages=find_packages(exclude=['tests']),
+    packages=find_packages(exclude=['tests','doc']),
 
     install_requires=['numpy', 'scipy', 'pandas',
                       'statsmodels', 'networkx', 'patsy', 
