@@ -6,6 +6,11 @@ This is an implementation of the IC* (Inductive Causation with latent
 variables) algorithm as described in _Causality_ by Judea Pearl, 2000.
 """
 
+try:
+    xrange
+except NameError:
+    xrange = range
+
 class IC():
     def __init__(self, independence_test, data, variable_types, alpha=0.05):
         self.data = data
@@ -76,7 +81,7 @@ class IC():
                 if child == b:
                     return True
                 if child not in seen:
-                    neighbors += [(child, neighbor) for neighbor in self._g.neighbors(neighbor)]
+                    neighbors += [(child, neighbor) for neighbor in self._g.neighbors(child)]
                 seen.append(child)
         return False
         
