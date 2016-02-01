@@ -29,7 +29,7 @@ x1 = numpy.random.normal(size=SIZE)
 x2 = x1 + numpy.random.normal(size=SIZE)
 x3 = x1 + numpy.random.normal(size=SIZE)
 x4 = x2 + x3 + numpy.random.normal(size=SIZE)
-x5 = x5 = x4 + numpy.random.normal(size=SIZE)
+x5 = x4 + numpy.random.normal(size=SIZE)
 
 # load the data into a dataframe:
 X = pd.DataFrame({'x1' : x1, 'x2' : x2, 'x3' : x3, 'x4' : x4, 'x5' : x5})
