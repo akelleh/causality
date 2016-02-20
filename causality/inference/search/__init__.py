@@ -11,15 +11,29 @@ try:
 except NameError:
     xrange = range
 
+DEFAULT_BINS=3
+
 class IC():
-    def __init__(self, independence_test, data, variable_types, alpha=0.05):
+    def __init__(self, independence_test, data, variable_types, alpha=0.05, discretize=False):
         self.data = data
         self.independence_test = independence_test
         self.variable_types = variable_types
         self.alpha = alpha
         self.separating_sets = None
         self._g = None
+        if discretize:
+            self.discretize(discretize)
 
+    def discretize(self):
+        self.discretized = []
+        for column, var_type in self.variable_types.items():
+            if var_type == 'c':
+                bins = discretize.get(column,{}).get('bins',DEFAULT_BINS)
+                self.data[column] = pd.qcut(x1,bins,labels=False)
+                self.discretized.append(column)
+        for column in self.discretized:
+            self.variable_types[column] = 'd'
+            
     def search(self):
         self._build_g()
         self._find_skeleton()
