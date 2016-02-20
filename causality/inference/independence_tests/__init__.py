@@ -24,7 +24,7 @@ class RobustRegressionTest():
             else:
                 return True
 
-class DiscreteChiSquaredTest():
+class ChiSquaredTest():
     def __init__(self, y, x, z, data, alpha):
         self.alpha = alpha
         self.total_chi2 = 0.
