@@ -7,6 +7,11 @@ from scipy import stats
 import numpy as np
 from networkx.algorithms import is_directed_acyclic_graph
 
+try:
+    xrange
+except NameError:
+    xrange = range
+
 class AdjustForDirectCauses(object):
     def __init__(self, g, X, causes, effects, variable_types=None, expectation=False, density=True):
         if not is_directed_acyclic_graph(g):
