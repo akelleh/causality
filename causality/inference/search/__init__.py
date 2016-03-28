@@ -1,5 +1,6 @@
 import networkx as nx
 import itertools
+import pandas as pd
 
 """
 This is an implementation of the IC* (Inductive Causation with latent
@@ -11,14 +12,32 @@ try:
 except NameError:
     xrange = range
 
-class IC():
-    def __init__(self, independence_test, data, variable_types, alpha=0.05):
-        self.data = data
+DEFAULT_BINS = 3
+
+class ICs():
+    def __init__(self, independence_test, data, variable_types, alpha=0.05, discretize=False,bins=None):
+        self.data = data.copy()
         self.independence_test = independence_test
         self.variable_types = variable_types
         self.alpha = alpha
         self.separating_sets = None
         self._g = None
+        if discretize:
+            if bins:
+                self.bins = bins
+            else:
+                self.bins = {}
+            self.discretize()
+
+    def discretize(self):
+        self.discretized = []
+        for column, var_type in self.variable_types.items():
+            if var_type == 'c':
+                bins = self.bins.get(column,DEFAULT_BINS)
+                self.data[column] = pd.qcut(self.data[column],bins,labels=False)
+                self.discretized.append(column)
+        for column in self.discretized:
+            self.variable_types[column] = 'd'
 
     def search(self):
         self._build_g()

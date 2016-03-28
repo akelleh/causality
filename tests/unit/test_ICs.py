@@ -5,12 +5,12 @@ import numpy.random
 import pandas as pd
 import networkx as nx
 
-from causality.inference.search import IC
+from causality.inference.search import ICs
 from causality.inference.independence_tests import RobustRegressionTest
 
-TEST_SET_SIZE = 2000
+TEST_SET_SIZE = 5000
 
-class Test_IC(TestAPI):
+class Test_ICs(TestAPI):
 
     def setUp(self):
         x1 = numpy.random.normal(size=TEST_SET_SIZE)
@@ -27,7 +27,7 @@ class Test_IC(TestAPI):
                                 'x5' : set(['x4'])}
         self.true_colliders = set([('x3','x4'), ('x2','x4')])
         self.true_marked = set([('x4','x5')])
-        self.ic = IC(RobustRegressionTest, self.X, self.variable_types)
+        self.ic = ICs(RobustRegressionTest, self.X, self.variable_types)
 
     def test_build_g(self):
         self.ic._build_g()

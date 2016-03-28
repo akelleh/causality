@@ -46,7 +46,8 @@ class ChiSquaredTest():
                 try:
                     chi2, _, dof, _ = scipy.stats.chi2_contingency(contingency_table)
                 except ValueError:
-                    raise Exception("Not enough data or entries with 0 present: Chi^2 Test not applicable.")
+                    raise Exception("""Not enough data or entries with 0 present: Chi^2 Test not applicable.
+                                    z = {}, table is {}""".format(contingency, contingency_table))
                 self.total_dof += dof
                 self.total_chi2 += chi2
         self.total_p = 1. - scipy.stats.chi2.cdf(self.total_chi2, self.total_dof)
