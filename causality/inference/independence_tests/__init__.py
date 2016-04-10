@@ -3,6 +3,9 @@ import numpy as np
 import statsmodels.api as sm
 import scipy.stats
 import itertools
+from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional, KDEMultivariate, EstimatorSettings
+import pymc
+
 
 class RobustRegressionTest():
     def __init__(self, y, x, z, data, alpha):
@@ -57,92 +60,122 @@ class ChiSquaredTest():
             return False
         else:
             return True
-       
-class MutualInformationTest(object):
-    """
-    Mutual information is the most general independence test, but also one of the hardest
-    to estimate well.  This implementation takes a forceful approach of estimating the 
-    densities, and calculating the mutual information by directly summing/integrating.
 
-    There are almost certainly more efficient implementations, but we want to avoid 
-    approaches that require discretization.  
+class MixedChiSquaredTest(object):
+    
     """
-    def __init__(self, variable_types):
+    This test compares the chi2 statistic between two distributions.  One where
+    P(X,Y,Z) = P(X|Z)P(Y|Z)P(Z) (the conditionally indep distribution), where
+    the samples are then discretized and chi2 is calculated, to the chi2 from
+    just discretizing the original data.  
+
+    If the chi2 from the original data is larger than the chi2 from the 
+    conditionally independent data (with the appropriate p-value), then X and Y
+    are deemed conditionally dependent given Z.
+    """
+    def __init__(self, y, x, z, X, alpha, variable_types={}, burn=1000, thin=10):
         self.variable_types = variable_types
+        if len(X) > 300 or max(len(x+z),len(y+z)) >= 3:
+            self.defaults=EstimatorSettings(n_jobs=4, efficient=True)
+        else:
+            self.defaults=EstimatorSettings(n_jobs=-1, efficient=False)
+        self.densities = self.estimate_densities(x, y, z, X)
+        self.N = len(X)
+        self.mcmc_initialization = X[x+y+z].median().values
+        self.burn = burn
+        self.thin = thin
+        self.null_df = self.generate_ci_sample() 
+
+    def discretize_and_get_chi2(self, X):
+        
+    def discretize(self, X):
+        
+
+    def bootstrap(self, X, function, lower_confidence=self.alpha/2., upper_confidence=1. - self.alpha/2.):
+        bootstrap_samples = self.N
+        samples = []
+        for i in xrange(bootstrap_samples):
+            bs_indices = npr.choice(xrange(len(iterable)), size=len(iterable), replace=True)
+            sampled_arr = X.values[bs_indices]
+            samples.append(function(sampled_arr))
+        samples = pd.DataFrame(samples)
+        cis = samples.quantile([lower_confidence,upper_confidence])[0]
+        lower_ci = cis[lower_confidence]
+        expected = samples.mean()[0]
+        upper_ci = cis[upper_confidence]
+        return lower_ci, expected, upper_ci
 
     def estimate_densities(self, x, y, z, X):
         p_x_given_z = self.estimate_cond_pdf(x, z, X)
         p_y_given_z = self.estimate_cond_pdf(y, z, X)
-        p_xy_given_z = self.estimate_cond_pdf(x+y, z, X)
         p_z = self.estimate_cond_pdf(z, [], X)
-        return self.mutual_information(pxy_given_z, p_x_given_z, p_y_given_z, p_z, x, y, z)
+        return p_x_given_z, p_y_given_z, p_z
 
     def estimate_cond_pdf(self, x, z, X):
         # normal_reference works better with mixed types
-        if 'c' not in [self.variable_types[xi] for xi in x+z]
+        if 'c' not in [self.variable_types[xi] for xi in x+z]:
             bw = 'cv_ml'
         else:
-            bw = 'normal_reference'
+            bw = 'cv_ml'#'normal_reference'
 
         # if conditioning on the empty set, return a pdf instead of cond pdf
         if len(z) == 0:
-            return KDEMulivariate(X[x],
+            return KDEMultivariate(X[x],
                                   var_type=''.join([self.variable_types[xi] for xi in x]),
-                                  bw=bw)
+                                  bw=bw,
+                                  defaults=self.defaults)
         else:
             return KDEMultivariateConditional(endog=X[x],
                                               exog=X[z],
                                               dep_type=''.join([self.variable_types[xi] for xi in x]),
                                               indep_type=''.join([self.variable_types[zi] for zi in z]),
-                                              bw=bw)
+                                              bw=bw,
+                                              defaults=self.defaults)
 
-    def mutual_information(self, pxy_given_z, p_x_given_z, p_y_given_z, p_z, x, y, z):
-        pass        
-        
+    def generate_ci_sample(self):
+        @pymc.stochastic(name='joint_sample')
+        def ci_joint(value=self.mcmc_initialization):
+            def logp(value):
+                xi = [value[i] for i in range(len(x))]
+                yi = [value[i+len(x)] for i in range(len(y))]
+                zi = [value[i+len(x)+len(y)] for i in range(len(z))] 
+                if len(z) == 0:
+                    log_px_given_z = np.log(self.densities[0].pdf(data_predict=xi))
+                    log_py_given_z = np.log(self.densities[1].pdf(data_predict=yi))
+                    log_pz = 0.
+                else:
+                    log_px_given_z = np.log(self.densities[0].pdf(endog_predict=xi, exog_predict=zi))
+                    log_py_given_z =np.log(self.densities[1].pdf(endog_predict=yi, exog_predict=zi))
+                    log_pz = np.log(self.densities[2].pdf(data_predict=zi))
+                return log_px_given_z + log_py_given_z + log_pz
+        model = pymc.Model([ci_joint])
+        mcmc = pymc.MCMC(model)
+        burn = self.burn
+        thin = self.thin
+        samples = self.N
+        iterations = samples * thin + burn
+        mcmc.sample(iter=iterations, burn=burn, thin=thin)
+        return pd.DataFrame(mcmc.trace('joint_sample')[:], columns=x+y+z)
 
-    def sum_or_integrate(self, function, ranges, sum_mask):
-        support = self.get_support(X)
 
 
-    def get_fitted_bandwidths(self, x, y, z, p_x_given_z, p_y_given_z, p_xy_given_z, p_z):
-        variable_bandwidths = defaultdict(lambda x: 0.)
-        for i, vi in enumerate(x):
-            if variable_bandwidths[vi] < p_x_given_z.bw[i]:
-                variable_bandwidths[vi] = p_x_given_z.bw[i]
-            if variable_bandwdiths[vi] < p_xy_given_z.bw[i]:
-                variable_bandwidths[vi] = p_xy_given_z.bw[i]
-        for i, vi in enumerate(y):
-            if variable_bandwidths[vi] < p_y_given_z.bw[i]:
-                variable_bandwidths[vi] = p_y_given_z.bw[i]
-            if variable_bandwdiths[vi] < p_xy_given_z.bw[len(x)+i]:
-                variable_bandwidths[vi] = p_xy_given_z.bw[len(x)+i]
-        for i, vi in enumerate(z):
-            if variable_bandwidths[vi] < p_y_given_z.bw[len(y)+i]:
-                variable_bandwidths[vi] = p_y_given_z.bw[len(y)i]
-            if variable_bandwdiths[vi] < p_xy_given_z.bw[len(x)+len(y)+i]:
-                variable_bandwidths[vi] = p_xy_given_z.bw[len(x)+len(y)+i]
-            if variable_bandwidths[vi] < p_z.bw[i]:
-                variable_bandwidths[vi] = p_z.bw[i]
-        return variable_bandwidths
-
-    def get_support(self,X, x, y, z, p_x_given_z, p_y_given_z, p_xy_given_z, p_z):
-        """
-        find the smallest cube around which the densities are supported,
-        allowing a little flexibility for variables with larger bandwidths.
-        """
-        data_support = {vi : (X[vi].min(), X[vi].max()) for vi in self.variable_types.keys()}
-        fitted_bandwidths = self.get_fitted_bandwidths(x, y, z, p_x_given_z, p_y_given_z, p_xy_given_z, p_z)
-
-        support = {}
-        for vi in x+y+z:
-            if self.variable_types[vi] == 'c':
-                # for continuous variables, go outside the data support to capture
-                # the kernel's contribution
-                lower_support = data_support[vi][0] - 10. * fitted_bandwidths[vi]
-                upper_support = data_support[vi][1] + 10. * fitted_bandwidths[vi]
-                support[vi] = (lower_support, upper_support)
-            else:
-                # for discrete data, sum over the data's values
-                support[vi] = data_support[vi]
-        return support
-
+if __name__=="__main__":
+    y = ['x3']
+    x = ['x1']
+    z = ['x2']
+    alpha = 0.05
+    size = 1000
+    x1 = np.random.normal(size=size)
+    x2 = np.random.normal(size=size) + x1
+    x3 = np.random.normal(size=size) + x1 + x2
+    X = pd.DataFrame({'x1':x1,'x2':x2, 'x3':x3})
+    test = MixedChiSquaredTest(y, x, z, X, alpha, variable_types={'x1':'c', 'x2':'c', 'x3':'c'})
+    X_sampled = test.generate_ci_sample()
+    print X.corr()
+    print X_sampled.corr()
+    regression = sm.RLM(X[y], X[x+z])
+    result = regression.fit()
+    print result.summary()
+    regression = sm.RLM(X_sampled[y], X_sampled[x+z])
+    result = regression.fit()
+    print result.summary()
