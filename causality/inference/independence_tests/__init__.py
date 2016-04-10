@@ -87,11 +87,19 @@ class MixedChiSquaredTest(object):
         self.null_df = self.generate_ci_sample() 
 
     def discretize_and_get_chi2(self, X):
-        
-    def discretize(self, X):
-        
+        pass
 
-    def bootstrap(self, X, function, lower_confidence=self.alpha/2., upper_confidence=1. - self.alpha/2.):
+    def discretize(self, X):
+        self.discretized = []
+        discretized_X = X.copy()
+        for column, var_type in self.variable_types.items():
+            if var_type == 'c':
+                bins = self.bins.get(column,DEFAULT_BINS)
+                discretized_X[column] = pd.qcut(X[column],bins,labels=False)
+                self.discretized.append(column)
+        return discretized_X 
+
+    def bootstrap(self, X, function, lower_confidence=.05/2., upper_confidence=1. - .05/2.):
         bootstrap_samples = self.N
         samples = []
         for i in xrange(bootstrap_samples):
@@ -170,6 +178,8 @@ if __name__=="__main__":
     x3 = np.random.normal(size=size) + x1 + x2
     X = pd.DataFrame({'x1':x1,'x2':x2, 'x3':x3})
     test = MixedChiSquaredTest(y, x, z, X, alpha, variable_types={'x1':'c', 'x2':'c', 'x3':'c'})
+    print test.discretize(X).head()
+
     X_sampled = test.generate_ci_sample()
     print X.corr()
     print X_sampled.corr()
