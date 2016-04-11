@@ -192,7 +192,7 @@ if __name__=="__main__":
     size = 5000
     x1 = np.random.normal(size=size)
     x2 = np.random.normal(size=size) + x1
-    x3 = np.random.normal(size=size) + x2 + x1
+    x3 = np.random.normal(size=size) + x2 
     X = pd.DataFrame({'x1':x1,'x2':x2, 'x3':x3})
     test = MixedChiSquaredTest(y, x, z, X, alpha, variable_types={'x1':'c', 'x2':'c', 'x3':'c'})
     print 'null', test.chi2_bound
