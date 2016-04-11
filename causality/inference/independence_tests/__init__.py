@@ -6,6 +6,7 @@ import itertools
 from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional, KDEMultivariate, EstimatorSettings
 import pymc
 
+DEFAULT_BINS = 2
 
 class RobustRegressionTest():
     def __init__(self, y, x, z, data, alpha):
@@ -73,8 +74,13 @@ class MixedChiSquaredTest(object):
     conditionally independent data (with the appropriate p-value), then X and Y
     are deemed conditionally dependent given Z.
     """
-    def __init__(self, y, x, z, X, alpha, variable_types={}, burn=1000, thin=10):
+    def __init__(self, y, x, z, X, alpha, variable_types={}, burn=1000, thin=10, bins={}):
         self.variable_types = variable_types
+        self.bins = bins
+        self.alpha = alpha
+        self.x = x
+        self.y = y
+        self.z = z
         if len(X) > 300 or max(len(x+z),len(y+z)) >= 3:
             self.defaults=EstimatorSettings(n_jobs=4, efficient=True)
         else:
@@ -84,10 +90,21 @@ class MixedChiSquaredTest(object):
         self.mcmc_initialization = X[x+y+z].median().values
         self.burn = burn
         self.thin = thin
-        self.null_df = self.generate_ci_sample() 
+        self.null_df = self.generate_ci_sample()
+        _, _, self.chi2_bound = self.discretize_and_get_chi2(self.null_df)
+        self.chi2 = self.discretize_and_get_chi2(X)
+    
+    def independent(self):
+        if self.chi2 > self.chi2_bound:
+            return False
+        else:
+            return True
 
-    def discretize_and_get_chi2(self, X):
-        pass
+    def discretize_and_get_chi2(self,X):
+        discretized_df = self.discretize(X)
+        f = lambda X : ChiSquaredTest(self.y, self.x, self.z, X, self.alpha).total_chi2
+        lower, expected, upper = self.bootstrap(discretized_df, f, lower_confidence=self.alpha/2, upper_confidence=1.-self.alpha/2.)
+        return lower, expected, upper
 
     def discretize(self, X):
         self.discretized = []
@@ -103,8 +120,8 @@ class MixedChiSquaredTest(object):
         bootstrap_samples = self.N
         samples = []
         for i in xrange(bootstrap_samples):
-            bs_indices = npr.choice(xrange(len(iterable)), size=len(iterable), replace=True)
-            sampled_arr = X.values[bs_indices]
+            bs_indices = np.random.choice(xrange(len(X)), size=len(X), replace=True)
+            sampled_arr = pd.DataFrame(X.values[bs_indices], columns=X.columns)
             samples.append(function(sampled_arr))
         samples = pd.DataFrame(samples)
         cis = samples.quantile([lower_confidence,upper_confidence])[0]
@@ -172,14 +189,16 @@ if __name__=="__main__":
     x = ['x1']
     z = ['x2']
     alpha = 0.05
-    size = 1000
+    size = 5000
     x1 = np.random.normal(size=size)
     x2 = np.random.normal(size=size) + x1
-    x3 = np.random.normal(size=size) + x1 + x2
+    x3 = np.random.normal(size=size) + x2 + x1
     X = pd.DataFrame({'x1':x1,'x2':x2, 'x3':x3})
     test = MixedChiSquaredTest(y, x, z, X, alpha, variable_types={'x1':'c', 'x2':'c', 'x3':'c'})
-    print test.discretize(X).head()
-
+    print 'null', test.chi2_bound
+    print 'actual', test.chi2
+    print test.independent()
+    raise Exception
     X_sampled = test.generate_ci_sample()
     print X.corr()
     print X_sampled.corr()
