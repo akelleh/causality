@@ -92,7 +92,7 @@ class MixedChiSquaredTest(object):
         self.thin = thin
         self.null_df = self.generate_ci_sample()
         _, _, self.chi2_bound = self.discretize_and_get_chi2(self.null_df)
-        self.chi2 = self.discretize_and_get_chi2(X)
+        self.chi2 = self.discretize_and_get_chi2(X)[1]
     
     def independent(self):
         if self.chi2 > self.chi2_bound:
