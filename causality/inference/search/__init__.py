@@ -123,7 +123,7 @@ class IC():
                 z_candidates = list(set(x_neighbors + y_neighbors) - set([x,y]))
                 for z in itertools.combinations(z_candidates, N):
                     test = self.independence_test([y], [x], list(z), 
-                        self.data, self.alpha)
+                        self.data, self.alpha, variable_types=self.variable_types)
                     if test.independent():
                         self._g.remove_edge(x,y)
                         self.separating_sets[(x,y)] = z

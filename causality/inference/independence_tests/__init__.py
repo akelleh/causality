@@ -9,7 +9,7 @@ import pymc
 DEFAULT_BINS = 2
 
 class RobustRegressionTest():
-    def __init__(self, y, x, z, data, alpha):
+    def __init__(self, y, x, z, data, alpha, variable_types={}):
         self.regression = sm.RLM(data[y], data[x+z])
         self.result = self.regression.fit()
         self.coefficient = self.result.params[x][0]
@@ -45,13 +45,13 @@ class ChiSquaredTest():
             y_values = {yi : data.groupby(yi).groups.keys()}
 
             contingencies = itertools.product(*[z_values[zi] for zi in z])
-
             for contingency in contingencies:
                 contingency_table = tables.loc[contingency].values
                 try:
                     chi2, _, dof, _ = scipy.stats.chi2_contingency(contingency_table)
                 except ValueError:
-                    raise Exception("Not enough data or entries with 0 present: Chi^2 Test not applicable.")
+                    print "Potentially not enough data or entries with 0 present: Chi^2 Test not applicable."
+                    chi2, _, dof, _ = scipy.stats.chi2_contingency(contingency_table+1) #Hack that shrinks towards equal distribution
                 self.total_dof += dof
                 self.total_chi2 += chi2
         self.total_p = 1. - scipy.stats.chi2.cdf(self.total_chi2, self.total_dof)
@@ -81,6 +81,7 @@ class MixedChiSquaredTest(object):
         self.x = x
         self.y = y
         self.z = z
+        print '\nCreating indep test for x, y, z = ',x,y,z
         if len(X) > 300 or max(len(x+z),len(y+z)) >= 3:
             self.defaults=EstimatorSettings(n_jobs=4, efficient=True)
         else:
@@ -110,6 +111,8 @@ class MixedChiSquaredTest(object):
         self.discretized = []
         discretized_X = X.copy()
         for column, var_type in self.variable_types.items():
+            if column not in X:
+                continue
             if var_type == 'c':
                 bins = self.bins.get(column,DEFAULT_BINS)
                 discretized_X[column] = pd.qcut(X[column],bins,labels=False)
@@ -133,6 +136,8 @@ class MixedChiSquaredTest(object):
     def estimate_densities(self, x, y, z, X):
         p_x_given_z = self.estimate_cond_pdf(x, z, X)
         p_y_given_z = self.estimate_cond_pdf(y, z, X)
+        if len(z)==0:
+            return p_x_given_z, p_y_given_z
         p_z = self.estimate_cond_pdf(z, [], X)
         return p_x_given_z, p_y_given_z, p_z
 
@@ -142,9 +147,10 @@ class MixedChiSquaredTest(object):
             bw = 'cv_ml'
         else:
             bw = 'cv_ml'#'normal_reference'
-
         # if conditioning on the empty set, return a pdf instead of cond pdf
         if len(z) == 0:
+            if len(x)==0:
+                raise Exception('x in P(x|z) cannot be null')
             return KDEMultivariate(X[x],
                                   var_type=''.join([self.variable_types[xi] for xi in x]),
                                   bw=bw,
@@ -158,6 +164,9 @@ class MixedChiSquaredTest(object):
                                               defaults=self.defaults)
 
     def generate_ci_sample(self):
+        x = self.x
+        y = self.y
+        z = self.z
         @pymc.stochastic(name='joint_sample')
         def ci_joint(value=self.mcmc_initialization):
             def logp(value):
