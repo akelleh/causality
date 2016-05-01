@@ -11,7 +11,7 @@ TEST_SET_SIZE = 2000
 TRIALS = 2
 P = 0.5
 
-class Test_Chi2(TestAPI):
+class TestChi2(TestAPI):
 
     def setUp(self):
         a = numpy.random.binomial(TRIALS,P,size=TEST_SET_SIZE)
@@ -66,7 +66,7 @@ class Test_Chi2(TestAPI):
 
 
 
-class Test_Chi2(TestAPI):
+class TestMutualInformation(TestAPI):
 
     def setUp(self):
         size = 1000
