@@ -2,7 +2,7 @@ import pandas as pd
 from scipy.integrate import nquad
 import numpy as np
 
-from causality.nonparametric.causal_reg import CausalEffect
+from causality.estimation.nonparametric import CausalEffect
 from tests.unit import TestAPI 
 from tests.unit.settings import TOL
 
