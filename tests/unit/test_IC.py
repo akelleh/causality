@@ -27,10 +27,11 @@ class Test_IC(TestAPI):
                                 'x5' : set(['x4'])}
         self.true_colliders = set([('x3','x4'), ('x2','x4')])
         self.true_marked = set([('x4','x5')])
-        self.ic = IC(RobustRegressionTest, self.X, self.variable_types)
+        self.ic = IC(RobustRegressionTest)
+        self.ic.search(self.X, self.variable_types)
 
     def test_build_g(self):
-        self.ic._build_g()
+        self.ic._build_g(self.variable_types)
         V = len(self.X.columns)
         assert(len(self.ic._g.edges()) == (V-1)*V / 2) 
         assert(set(self.ic._g.nodes()) == set(self.variable_types.keys()))
@@ -40,14 +41,14 @@ class Test_IC(TestAPI):
             assert(self.ic._g.edge[i][j]['marked'] == False)
 
     def test_find_skeleton(self):
-        self.ic._build_g()
-        self.ic._find_skeleton()
+        self.ic._build_g(self.variable_types)
+        self.ic._find_skeleton(self.X, self.variable_types)
         for node, neighbors in self.true_neighbors.items():
             assert(set(self.ic._g.neighbors(node)) == neighbors)
             
     def test_orient_colliders(self):
-        self.ic._build_g()
-        self.ic._find_skeleton()
+        self.ic._build_g(self.variable_types)
+        self.ic._find_skeleton(self.X, self.variable_types)
         self.ic._orient_colliders()
         for i, j in self.ic._g.edges():
             measured_colliders = self.ic._g.edge[i][j]['arrows']
@@ -60,8 +61,8 @@ class Test_IC(TestAPI):
                 assert((i,j) not in self.true_colliders and (j,i) not in self.true_colliders)
 
     def test_separating_set(self):
-        self.ic._build_g()
-        self.ic._find_skeleton()
+        self.ic._build_g(self.variable_types)
+        self.ic._find_skeleton(self.X, self.variable_types)
         for xi, xj in itertools.combinations(self.variable_types.keys(), 2):
             if not self.ic._g.has_edge(xi,xj):
                 if (xi,xj) in self.ic.separating_sets:
@@ -91,7 +92,7 @@ class Test_IC(TestAPI):
         pass
 
     def test_search(self):
-        self.ic.search()
+        self.ic.search(self.X, self.variable_types)
         for i, j in self.ic._g.edges():
             if self.ic._g.edge[i][j]['marked']:
                 assert( (i,j) in self.true_marked or (j,i) in self.true_marked)
