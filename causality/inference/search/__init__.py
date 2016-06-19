@@ -11,18 +11,19 @@ try:
 except NameError:
     xrange = range
 
+class SearchException(Exception):
+    pass
+
 class IC():
-    def __init__(self, independence_test, data, variable_types, alpha=0.05):
-        self.data = data
+    def __init__(self, independence_test, alpha=0.05):
         self.independence_test = independence_test
-        self.variable_types = variable_types
         self.alpha = alpha
         self.separating_sets = None
         self._g = None
 
-    def search(self):
-        self._build_g()
-        self._find_skeleton()
+    def search(self, data, variable_types):
+        self._build_g(variable_types)
+        self._find_skeleton(data, variable_types)
         self._orient_colliders()
         
         added_arrows = True
@@ -33,15 +34,15 @@ class IC():
 
         return self._g
 
-    def _build_g(self):
+    def _build_g(self, variable_types):
         """
         This initializes a complete graph over the variables.  We'll run
         independence tests on the complete graph to cut edges by trying to
         find separating sets.
         """
         self._g = nx.Graph()
-        self._g.add_nodes_from(self.variable_types.keys())
-        for var, var_type in self.variable_types.items():
+        self._g.add_nodes_from(variable_types.keys())
+        for var, var_type in variable_types.items():
             self._g.node[var]['type'] = var_type
         edges_to_add = []
         for (node_a, node_b) in itertools.combinations(self._g.node.keys(), 2):
@@ -96,11 +97,13 @@ class IC():
                         self._g[v_a][v_c]['arrows'].append(v_c)
                         self._g[v_b][v_c]['arrows'].append(v_c)
        
-    def separating_set(self, xi, xj):
-        if not self.separating_sets:
+    def separating_set(self, xi, xj, data=None, variable_types=None):
+        if not self.separating_sets and data and variable_types:
             if not self._g:
-                self._build_g()
-            self._find_skeleton()
+                self._build_g(variable_types)
+            self._find_skeleton(data, variable_types)
+        elif not self.separating_sets and not (data and variable_types):
+            raise SearchException("Can't measure separating sets: Need data and var types.")
         if (xi,xj) in self.separating_sets:
             return self.separating_sets[(xi,xj)]
         elif (xj,xi) in self.separating_sets:
@@ -108,7 +111,7 @@ class IC():
         else:
             return False 
  
-    def _find_skeleton(self):
+    def _find_skeleton(self, data, variable_types):
         """
         For each pair of nodes, run a conditional independence test over 
         larger and larger conditioning sets to try to find a set that 
@@ -123,7 +126,7 @@ class IC():
                 z_candidates = list(set(x_neighbors + y_neighbors) - set([x,y]))
                 for z in itertools.combinations(z_candidates, N):
                     test = self.independence_test([y], [x], list(z), 
-                        self.data, self.alpha)
+                        data, self.alpha)
                     if test.independent():
                         self._g.remove_edge(x,y)
                         self.separating_sets[(x,y)] = z

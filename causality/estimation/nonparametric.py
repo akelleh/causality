@@ -1,5 +1,5 @@
 import pandas as pd
-from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional, KDEMultivariate
+from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional, KDEMultivariate, EstimatorSettings
 from statsmodels.nonparametric.kernel_regression import KernelReg
 import itertools
 from scipy.integrate import nquad
@@ -11,34 +11,6 @@ try:
     xrange
 except NameError:
     xrange = range
-
-class AdjustForDirectCauses(object):
-    def __init__(self, g, X, causes, effects, variable_types=None, expectation=False, density=True):
-        if not is_directed_acyclic_graph(g):
-            raise Exception("Directed, Acyclic graph required.")
-        self.g = g  
-        self.causes = causes
-        self.effects = effects
-        self.find_predecessors()
-        self.admissable_set = self.predecessors
-        if self.assumptions_satisfied():
-            self.effect = CausalEffect(X, causes, effects, admissable_set=list(self.predecessors), 
-                                       variable_types=variable_types, expectation=expectation,
-                                       density=density)
-        else:
-            raise Exception("Adjustment assumptions not satisfied")
-
-    def find_predecessors(self):
-        predecessors = set()
-        for cause in self.causes:
-            predecessors = predecessors.union(self.g.predecessors(cause))
-        self.predecessors = predecessors - set(self.causes)
-
-    def assumptions_satisfied(self):
-        if len(set(self.effects).intersection(set(self.causes).union(self.predecessors))) == 0:
-            return True
-        else:
-            return False
 
 class CausalEffect(object):
     def __init__(self, X, causes, effects, admissable_set=[], variable_types=None, expectation=False, density=True):
@@ -57,6 +29,11 @@ class CausalEffect(object):
         self.effects = effects
         self.admissable_set = admissable_set
         self.conditional_density_vars = conditional_density_vars
+
+        if len(X) > 300 or max(len(causes+admissable_set),len(effects+admissable_set)) >= 3:
+            self.defaults=EstimatorSettings(n_jobs=4, efficient=True)
+        else:
+            self.defaults=EstimatorSettings(n_jobs=-1, efficient=False)
         
         if variable_types:
             self.variable_types = variable_types
@@ -75,13 +52,15 @@ class CausalEffect(object):
         if admissable_set:            
             self.density = KDEMultivariate(X[admissable_set], 
                                   var_type=''.join(density_types),
-                                  bw=bw)
+                                  bw=bw,
+                                  defaults=self.defaults)
         
         self.conditional_density = KDEMultivariateConditional(endog=X[effects],
                                                          exog=X[conditional_density_vars],
                                                          dep_type=''.join(dep_type),
                                                          indep_type=''.join(indep_type),
-                                                         bw=bw)
+                                                         bw=bw,
+                                                         defaults=self.defaults)
         if expectation:
             self.conditional_expectation = KernelReg(X[effects].values,
                                                  X[conditional_density_vars].values,
