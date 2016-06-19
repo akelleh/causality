@@ -12,7 +12,6 @@ class TestCausalEffect(TestAPI):
         self.X = pd.read_csv('./tests/unit/data/X.csv')
         self.discrete = pd.read_csv('./tests/unit/data/discrete.csv')
 
-    """
     def test_pdf_discrete(self):
         causes = ['c']
         effects = ['d']
@@ -23,7 +22,6 @@ class TestCausalEffect(TestAPI):
         print p
         # p(d=1|do(c=0) = 0.45, p(d=1|c=0) = 0.40
         assert( abs( 0.45 - p ) < 0.02 )
-    """
     
     def test_pdf_no_adjustment(self):
         causes = ['c']
@@ -36,7 +34,6 @@ class TestCausalEffect(TestAPI):
         print p
         assert( abs( 0.40 - p ) < 0.02 ) 
 
-    """    
     def test_pdf_continuous(self):
         causes = ['c']
         effects = ['d']
@@ -189,4 +186,3 @@ class TestCausalEffect(TestAPI):
         print "E(d | do(b = 600) ): ",p2
         #assert( abs( p - 0.25 ) < 0.05 )
         assert( abs( ( p2 - p1 ) / 200 - 5. < 0.01 ) )
-    """

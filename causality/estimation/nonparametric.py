@@ -1,5 +1,5 @@
 import pandas as pd
-from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional, KDEMultivariate
+from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional, KDEMultivariate, EstimatorSettings
 from statsmodels.nonparametric.kernel_regression import KernelReg
 import itertools
 from scipy.integrate import nquad
@@ -29,6 +29,11 @@ class CausalEffect(object):
         self.effects = effects
         self.admissable_set = admissable_set
         self.conditional_density_vars = conditional_density_vars
+
+        if len(X) > 300 or max(len(causes+admissable_set),len(effects+admissable_set)) >= 3:
+            self.defaults=EstimatorSettings(n_jobs=4, efficient=True)
+        else:
+            self.defaults=EstimatorSettings(n_jobs=-1, efficient=False)
         
         if variable_types:
             self.variable_types = variable_types
@@ -47,13 +52,15 @@ class CausalEffect(object):
         if admissable_set:            
             self.density = KDEMultivariate(X[admissable_set], 
                                   var_type=''.join(density_types),
-                                  bw=bw)
+                                  bw=bw,
+                                  defaults=self.defaults)
         
         self.conditional_density = KDEMultivariateConditional(endog=X[effects],
                                                          exog=X[conditional_density_vars],
                                                          dep_type=''.join(dep_type),
                                                          indep_type=''.join(indep_type),
-                                                         bw=bw)
+                                                         bw=bw,
+                                                         defaults=self.defaults)
         if expectation:
             self.conditional_expectation = KernelReg(X[effects].values,
                                                  X[conditional_density_vars].values,
