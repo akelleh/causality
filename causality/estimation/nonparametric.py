@@ -192,11 +192,15 @@ class CausalEffect(object):
       
 
 class BootstrapEstimator(object):
-    def __init__(self, f=np.mean, groupby_field=None, bootstrap_samples=1000, lower_q=0.025, upper_q=0.975):
+    def __init__(self, f=np.mean, bootstrap_samples=1000, p=None, lower_q=0.025, upper_q=0.975):
         self.f = f
         self.bootstrap_samples = bootstrap_samples
-        self.lower_q = lower_q
-        self.upper_q = upper_q
+        if p:
+            self.lower_q = p / 2.
+            self.upper_q = 1. - (p/2.)
+        else:
+            self.lower_q = lower_q
+            self.upper_q = upper_q
 
     def estimate(self, X):
         quantiles = pd.DataFrame([self.f(X.sample(n=len(X), replace=True)) for i in range(self.bootstrap_samples)]).quantile([self.lower_q,.5,self.upper_q])
