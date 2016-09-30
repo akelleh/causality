@@ -9,8 +9,8 @@ from collections import Counter
 
 DEFAULT_BINS = 2
 
-class RobustRegressionTest():
-    def __init__(self, y, x, z, data, alpha):
+class RobustRegressionTest(object):
+    def __init__(self, y, x, z, data, alpha, variable_types={}):
         self.regression = sm.RLM(data[y], data[x+z])
         self.result = self.regression.fit()
         self.coefficient = self.result.params[x][0]
@@ -30,8 +30,31 @@ class RobustRegressionTest():
             else:
                 return True
 
-class ChiSquaredTest():
-    def __init__(self, y, x, z, data, alpha):
+
+class GLMRegressionTest(object):
+    def __init__(self, y, x, z, data, alpha, variable_types={}):
+        self.regression = sm.GLM(data[y], data[x+z])
+        self.result = self.regression.fit()
+        self.coefficient = self.result.params[x][0]
+        confidence_interval = self.result.conf_int(alpha=alpha/2.)
+        self.upper = confidence_interval[1][x][0]
+        self.lower = confidence_interval[0][x][0]
+
+    def independent(self):
+        if self.coefficient > 0.:
+            if self.lower > 0.:
+                return False
+            else:
+                return True
+        else:
+            if self.upper < 0.:
+                return False
+            else:
+                return True
+
+
+class ChiSquaredTest(object):
+    def __init__(self, y, x, z, data, alpha, variable_types={}):
         self.alpha = alpha
         self.total_chi2 = 0.
         self.total_dof = 0
@@ -121,8 +144,8 @@ class MixedChiSquaredTest(object):
         bootstrap_samples = self.N
         samples = []
         for i in xrange(bootstrap_samples):
-            bs_indices = np.random.choice(xrange(len(X)), size=len(X), replace=True)
-            sampled_arr = pd.DataFrame(X.values[bs_indices], columns=X.columns)
+            #bs_indices = np.random.choice(xrange(len(X)), size=len(X), replace=True)
+            sampled_arr = X.sample(n=len(X),replace=True)#pd.DataFrame(X.values[bs_indices], columns=X.columns)
             samples.append(function(sampled_arr))
         samples = pd.DataFrame(samples)
         cis = samples.quantile([lower_confidence,upper_confidence])[0]
@@ -165,10 +188,10 @@ class MixedChiSquaredTest(object):
         @pymc.stochastic(name='joint_sample')
         def ci_joint(value=self.mcmc_initialization):
             def logp(value):
-                xi = [value[i] for i in range(len(x))]
-                yi = [value[i+len(x)] for i in range(len(y))]
-                zi = [value[i+len(x)+len(y)] for i in range(len(z))] 
-                if len(z) == 0:
+                xi = [value[i] for i in range(len(self.x))]
+                yi = [value[i+len(self.x)] for i in range(len(self.y))]
+                zi = [value[i+len(self.x)+len(self.y)] for i in range(len(self.z))]
+                if len(self.z) == 0:
                     log_px_given_z = np.log(self.densities[0].pdf(data_predict=xi))
                     log_py_given_z = np.log(self.densities[1].pdf(data_predict=yi))
                     log_pz = 0.
@@ -184,10 +207,10 @@ class MixedChiSquaredTest(object):
         samples = self.N
         iterations = samples * thin + burn
         mcmc.sample(iter=iterations, burn=burn, thin=thin)
-        return pd.DataFrame(mcmc.trace('joint_sample')[:], columns=x+y+z)
+        return pd.DataFrame(mcmc.trace('joint_sample')[:], columns=self.x+self.y+self.z)
 
 
-class MutualInformationTest():
+class MutualInformationTest(object):
     """
     This is mostly from "Distribution of Mutual Information" by Marcus Hutter.  This MVP implementation
     doesn't contain priors, but will soon be adjusted to include the priors for n_xy.
@@ -301,8 +324,9 @@ class MixedMutualInformationTest(object):
         bootstrap_samples = self.N
         samples = []
         for i in xrange(bootstrap_samples):
-            bs_indices = np.random.choice(xrange(len(X)), size=len(X), replace=True)
-            sampled_arr = pd.DataFrame(X.values[bs_indices], columns=X.columns)
+            sampled_arr = X.sample(n=len(X),replace=True)
+            #bs_indices = np.random.choice(xrange(len(X)), size=len(X), replace=True)
+            #sampled_arr = pd.DataFrame(X.values[bs_indices], columns=X.columns)
             samples.append(function(sampled_arr))
         samples = pd.DataFrame(samples)
         cis = samples.quantile([lower_confidence,upper_confidence])[0]
@@ -345,10 +369,10 @@ class MixedMutualInformationTest(object):
         @pymc.stochastic(name='joint_sample')
         def ci_joint(value=self.mcmc_initialization):
             def logp(value):
-                xi = [value[i] for i in range(len(x))]
-                yi = [value[i+len(x)] for i in range(len(y))]
-                zi = [value[i+len(x)+len(y)] for i in range(len(z))] 
-                if len(z) == 0:
+                xi = [value[i] for i in range(len(self.x))]
+                yi = [value[i+len(self.x)] for i in range(len(self.y))]
+                zi = [value[i+len(self.x)+len(self.y)] for i in range(len(self.z))] 
+                if len(self.z) == 0:
                     log_px_given_z = np.log(self.densities[0].pdf(data_predict=xi))
                     log_py_given_z = np.log(self.densities[1].pdf(data_predict=yi))
                     log_pz = 0.
@@ -364,7 +388,7 @@ class MixedMutualInformationTest(object):
         samples = self.N
         iterations = samples * thin + burn
         mcmc.sample(iter=iterations, burn=burn, thin=thin)
-        return pd.DataFrame(mcmc.trace('joint_sample')[:], columns=x+y+z)
+        return pd.DataFrame(mcmc.trace('joint_sample')[:], columns=self.x+self.y+self.z)
 
 if __name__=="__main__":
     size = 500

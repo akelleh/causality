@@ -189,4 +189,39 @@ class CausalEffect(object):
             return causal_effect
         else:
             return self.conditional_expectation.fit(data_predict=x[self.causes])[0]
-       
+      
+
+class BootstrapEstimator(object):
+    def __init__(self, f=np.mean, bootstrap_samples=1000, p=None, lower_q=0.025, upper_q=0.975):
+        self.f = f
+        self.bootstrap_samples = bootstrap_samples
+        if p:
+            self.lower_q = p / 2.
+            self.upper_q = 1. - (p/2.)
+        else:
+            self.lower_q = lower_q
+            self.upper_q = upper_q
+
+    def estimate(self, X):
+        quantiles = pd.DataFrame([self.f(X.sample(n=len(X), replace=True)) for i in range(self.bootstrap_samples)]).quantile([self.lower_q,.5,self.upper_q])
+        return quantiles
+
+    def found_winner(self, X):
+        quantiles = self.estimate(X)
+        for candidate in quantiles.columns:
+            others = list(set(quantiles.columns) - set([candidate]))
+            if (quantiles[others].ix[self.upper_q] < quantiles[candidate][self.lower_q]).all():
+                return True
+        return False
+
+    def chances_of_winning(self, X):
+        df = X.sample(n=len(X), replace=True)
+        res = self.f(df)
+        counts = (res == res.max()).astype(int)
+        for i in xrange(self.bootstrap_samples-1):
+            df = X.sample(n=len(X), replace=True)
+            res = self.f(df)
+            counts += (res == res.max()).astype(int)
+        return counts / float(self.bootstrap_samples)
+
+ 

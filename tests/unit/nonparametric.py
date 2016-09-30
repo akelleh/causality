@@ -2,11 +2,11 @@ import pandas as pd
 from scipy.integrate import nquad
 import numpy as np
 
-from causality.estimation.nonparametric import CausalEffect
+from causality.estimation.nonparametric import CausalEffect, BootstrapEstimator
 from tests.unit import TestAPI 
 from tests.unit.settings import TOL
 
-
+"""
 class TestCausalEffect(TestAPI): 
     def setUp(self):
         self.X = pd.read_csv('./tests/unit/data/X.csv')
@@ -186,3 +186,60 @@ class TestCausalEffect(TestAPI):
         print "E(d | do(b = 600) ): ",p2
         #assert( abs( p - 0.25 ) < 0.05 )
         assert( abs( ( p2 - p1 ) / 200 - 5. < 0.01 ) )
+"""
+class TestBootstrapEstimator(TestAPI):
+    def setUp(self):
+        size = 1000
+        x1 = np.random.choice([0.1,0.15], size=size)
+        x2 = x1 + np.random.normal(size=size)
+        x3 = x2 + np.random.normal(size=size)
+        self.X_close = pd.DataFrame({'x1' : x1, 'x2' : x2, 'x3' : x3})
+
+        size = 3000
+        x1 = np.random.choice([0,1,2], size=size)
+        x2 = x1 + np.random.normal(size=size)
+        x3 = x2 + np.random.normal(size=size)
+        self.X_discrete = pd.DataFrame({'x1' : x1, 'x2' : x2, 'x3' : x3})
+         
+
+    def test_estimate(self):
+        f = lambda X : X.groupby('x1')['x2'].mean()
+        est = BootstrapEstimator(f=f)
+        discr = est.estimate(self.X_discrete)
+        assert discr[0][0.025] <= 0. <= discr[0][0.975] 
+        assert discr[1][0.025] <= 1. <= discr[1][0.975]
+        assert discr[2][0.025] <= 2. <= discr[2][0.975]
+
+    def test_found_winner(self):
+        size = 10
+        x1 = np.random.choice([0.1,0.5], size=size)
+        x2 = x1 + np.random.normal(size=size)
+        x3 = x2 + np.random.normal(size=size)
+        X_close = pd.DataFrame({'x1' : x1, 'x2' : x2, 'x3' : x3})
+
+        f = lambda X : X.groupby('x1')['x2'].mean()
+        est = BootstrapEstimator(f=f)
+        close_result = est.found_winner(X_close)
+        assert not close_result
+
+        size=5000
+        x1 = np.random.choice([0.1,0.5], size=size)
+        x2 = x1 + np.random.normal(size=size)
+        x3 = x2 + np.random.normal(size=size)
+        X_close = pd.DataFrame({'x1' : x1, 'x2' : x2, 'x3' : x3})
+
+        f = lambda X : X.groupby('x1')['x2'].mean()
+        est = BootstrapEstimator(f=f)
+        close_result = est.found_winner(X_close)
+        assert close_result
+
+    def test_chances_of_winning(self):
+        size = 1000
+        x1 = np.random.choice(['a','b'], size=size)
+        x2 = np.random.normal(size=size)
+        x3 = x2 + np.random.normal(size=size)
+        X_even = pd.DataFrame({'x1' : x1, 'x2' : x2, 'x3' : x3})
+        f = lambda X : X.groupby('x1')['x2'].mean()
+        est = BootstrapEstimator(f=f)
+        raise Exception(est.chances_of_winning(X_even))
+        assert 0.95 * 0.5 <= est.chances_of_winning <= 1.05 * 0.5
