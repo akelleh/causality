@@ -91,3 +91,6 @@ class TestPropScore(TestAPI):
         X = pd.DataFrame({'att': atts, 'ate': ates, 'atc': atcs})
         assert (3.0 <= X.mean()).all()
         assert (X.mean() <= 4.0).all()
+
+
+
