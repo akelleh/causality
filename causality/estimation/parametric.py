@@ -146,3 +146,27 @@ class PropensityScoreMatching(object):
         att = estimate_ATT(self, X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
         atc = estimate_ATC(self, X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
         return (atc+att)/2. 
+
+
+class RegressionDiscontinuity(object):
+    def __init__ (self, robust=True):
+        if robust:
+            self.model = RLM
+        else:
+            self.model = OLM
+
+    def estimate_ATE(self, X, continuous='continuous',  outcome='outcome', cutoff=0., delta=0.1, indicator='D',
+                     intercept='intercept', store_result=False):
+        slice = X[X[continuous] < cutoff + delta]
+        slice = slice[slice[continuous] > cutoff - delta]
+        slice.loc[:,continuous] = slice[continuous] - cutoff
+        slice.loc[:, indicator] = (slice[continuous] > 0).apply(int)
+        slice.loc[:, indicator+'_'+continuous] = slice[indicator] * slice[continuous]
+        slice.loc[:, intercept] = 1.
+        model = self.model(slice[outcome], slice[[intercept, indicator+'_'+continuous, indicator, continuous]])
+        result = model.fit()
+        if store_result:
+            self.result = result
+
+    def check_assumptions(self):
+        pass
