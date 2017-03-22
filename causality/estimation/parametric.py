@@ -78,9 +78,24 @@ class DifferenceInDifferences(object):
 class PropensityScoreMatching(object):
     def __init__(self):
         # change the model if there are multiple matches per treated!
-        pass
+        self.propensity_score_model = None
+
 
     def score(self, X, confounder_types, assignment='assignment', store_model_fit=False, intercept=True):
+        """
+        Fit a propensity score model using the data in X and the confounders listed in confounder_types. This adds
+        the propensity scores to the dataframe, and returns the new dataframe.
+
+        :param X: The data set, with (at least) an assignment, set of confounders, and an outcome
+        :param assignment: A categorical variable (currently, 0 or 1) indicating test or control group, resp.
+        :param outcome: The outcome of interest.  Should be real-valued or ordinal.
+        :param confounder_types: A dictionary of variable_name: variable_type pairs of strings, where
+        variable_type is in {'c', 'o', 'd'}, for 'continuous', 'ordinal', and 'discrete'.
+        :param store_model_fit: boolean, Whether to store the model as an attribute of the class, as
+        self.propensity_score_model
+        :param intercept: Whether to include an intercept in the logistic regression model
+        :return: A new dataframe with the propensity scores included
+        """
         df = X[[assignment]]
         regression_confounders = []
         for confounder, var_type in confounder_types.items():
@@ -100,14 +115,27 @@ class PropensityScoreMatching(object):
             df.loc[:,'intercept'] = 1.
             regression_confounders.append('intercept')
         logit = Logit(df[assignment], df[regression_confounders])
-        result = logit.fit()
+        model = logit.fit()
         if store_model_fit:
-            self.model_fit = result
-        X.loc[:,'propensity score'] = result.predict(df[regression_confounders])
+            self.propensity_score_model = model
+        X.loc[:,'propensity score'] = model.predict(df[regression_confounders])
         return X
 
     def match(self, X, assignment='assignment', score='propensity score', n_neighbors=2):
-        treatments = X[X[assignment] != 0]
+        """
+        For each unit in the test group, match n_neighbors units in the control group with the closest propensity scores
+        (matching with replacement).
+
+        :param X: The data set, with (at least) an assignment, set of confounders, and an outcome
+        :param assignment: A categorical variable (currently, 0 or 1) indicating test or control group, resp.
+        :param score: The name of the column in X containing the propensity scores. Default is 'propensity score'
+        :param n_neighbors: The number of neighbors to match to each unit.
+        :return: two dataframes. the first contains the treatment units, and the second contains all of the control units
+        that have been matched to the treatment units. The treatment unit dataframe (first dataframe) contains a new
+        column with the indices of the matches in the control dataframe called 'matches'.
+        """
+
+        treatments = X[X[assignment] == 1]
         control = X[X[assignment] == 0]
         neighbor_search = NearestNeighbors(metric='euclidean', n_neighbors=n_neighbors)
         neighbor_search.fit(control[[score]].values)
@@ -115,14 +143,39 @@ class PropensityScoreMatching(object):
         return treatments, control
 
     def estimate_treatments(self, treatments, control, outcome):
+        """
+        Find the average outcome of the matched control units for each treatment unit. Add it to the treatment dataframe
+        as a new column called 'control outcome'.
+
+        :param treatments: A dataframe containing at least an outcome, and a list of indices for matches (in the control
+        dataframe). This should be generated as the output of the self.match method.
+        :param control: The dataframe containing the matches for the treatment dataframe. This should be generated as
+        the output of the self.match method.
+        :param outcome: A float or ordinal representing the outcome of interest.
+        :return: The treatment dataframe with the matched control outcome for each unit in a new column,
+        'control outcome'.
+        """
+
         def get_matched_outcome(matches):
             return sum([control[outcome].values[i] / float(len(matches[0])) for i in matches[0]])
         treatments.loc[:,'control outcome'] = treatments['matches'].apply(get_matched_outcome)
         return treatments
 
     def estimate_ATT(self, X, assignment, outcome, confounder_types, n_neighbors=5):
+        """
+        Estimate the average treatment effect for people who normally take the test assignment. Assumes a 1 for
+        the test assignment, 0 for the control assignment.
+
+        :param X: The data set, with (at least) an assignment, set of confounders, and an outcome
+        :param assignment: A categorical variable (currently, 0 or 1) indicating test or control group, resp.
+        :param outcome: The outcome of interest.  Should be real-valued or ordinal.
+        :param confounder_types: A dictionary of variable_name: variable_type pairs of strings, where
+        variable_type is in {'c', 'o', 'd'}, for 'continuous', 'ordinal', and 'discrete'.
+        :param n_neighbors: An integer for the number of neighbors to use with k-nearest-neighbor matching
+        :return: a float representing the treatment effect on the treated
+        """
         X = self.score(X, confounder_types, assignment)
-        treatments, control = self.match(X, assignment='assignment', score='propensity score', n_neighbors=n_neighbors)
+        treatments, control = self.match(X, assignment=assignment, score='propensity score', n_neighbors=n_neighbors)
         treatments = self.estimate_treatments(treatments, control, outcome)
         y_hat_treated = treatments[outcome].mean()
         y_hat_control = treatments['control outcome'].mean()
@@ -130,19 +183,36 @@ class PropensityScoreMatching(object):
 
     def estimate_ATC(self, X, assignment, outcome, confounder_types, n_neighbors=5):
         """
-        Assumes a 1 for the test assignment, 0 for the control assignment
+        Estimate the average treatment effect for people who normally take the control assignment. Assumes a 1 for
+        the test assignment, 0 for the control assignment.
+
         :param X: The data set, with (at least) an assignment, set of confounders, and an outcome
         :param assignment: A categorical variable (currently, 0 or 1) indicating test or control group, resp.
         :param outcome: The outcome of interest.  Should be real-valued or ordinal.
         :param confounder_types: A dictionary of variable_name: variable_type pairs of strings, where
         variable_type is in {'c', 'o', 'd'}, for 'continuous', 'ordinal', and 'discrete'.
         :param n_neighbors: An integer for the number of neighbors to use with k-nearest-neighbor matching
-        :return: a float representing the treatment effect
+        :return: a float representing the treatment effect on the control
         """
-        X['assignment'] = (X['assignment'] + 1) % 2
-        return -self.estimate_ATT(X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
+        df = X.copy()
+        df[assignment] = (df[assignment] + 1) % 2
+        return -self.estimate_ATT(df, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
 
     def estimate_ATE(self, X, assignment, outcome, confounder_types, n_neighbors=5):
-        att = estimate_ATT(self, X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
-        atc = estimate_ATC(self, X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
-        return (atc+att)/2. 
+        """
+        Find the Average Treatment Effect(ATE) on the population. An ATE can be estimated as a weighted average of the
+        ATT and ATC, weighted by the proportion of the population who is treated or not, resp. Assumes a 1 for
+        the test assignment, 0 for the control assignment.
+
+        :param X: The data set, with (at least) an assignment, set of confounders, and an outcome
+        :param assignment:  A categorical variable (currently, 0 or 1) indicating test or control group, resp.
+        :param outcome: The outcome of interest.  Should be real-valued or ordinal.
+        :param confounder_types: A dictionary of variable_name: variable_type pairs of strings, where
+        variable_type is in {'c', 'o', 'd'}, for 'continuous', 'ordinal', and 'discrete'.
+        :param n_neighbors: An integer for the number of neighbors to use with k-nearest-neighbor matching
+        :return: a float representing the average treatment effect
+        """
+        att = self.estimate_ATT(X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
+        atc = self.estimate_ATC(X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
+        p_assignment = len(X[X[assignment] == 1]) / float(len(X))
+        return p_assignment*att + (1-p_assignment)*atc
