@@ -216,3 +216,11 @@ class PropensityScoreMatching(object):
         atc = self.estimate_ATC(X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
         p_assignment = len(X[X[assignment] == 1]) / float(len(X))
         return p_assignment*att + (1-p_assignment)*atc
+
+    def assess_balance(self, X, treated, control, assignment, confounders):
+        pass
+
+    def calculate_balance(self, X, x, d):
+        numerator = X[X[d] == 1].mean()[x] - X[X[d] == 0].mean()[x]
+        denominator = np.sqrt((X[X[d] == 1].var()[x] + X[X[d] == 0].var()[x])/2.)
+        return numerator / denominator
