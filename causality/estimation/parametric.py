@@ -3,6 +3,7 @@ from statsmodels.regression.linear_model import OLS
 from statsmodels.robust.robust_linear_model import RLM
 from statsmodels.discrete.discrete_model import Logit
 from sklearn.neighbors import NearestNeighbors
+import numpy as np
 
 
 class DifferenceInDifferences(object):
@@ -217,10 +218,27 @@ class PropensityScoreMatching(object):
         p_assignment = len(X[X[assignment] == 1]) / float(len(X))
         return p_assignment*att + (1-p_assignment)*atc
 
-    def assess_balance(self, X, treated, control, assignment, confounders):
-        pass
+    def assess_balance(self, X, treated, control, assignment, confounder_types):
+        initial_imbalances = {}
+        for confounder, confounder_type in confounder_types:
+            if confounder_type != 'c':
+                # find dummies and test each value
+                
+            else:
+                imbalance = self.calculate_imbalance(X, confounder, assignment)
+                initial_imbalances['confounder'] = imbalance
+        return initial_imbalances
 
     def calculate_balance(self, X, x, d):
+        """
+        Calculate the balance metric to assess how unbalanced x is across the two levels of (binary) treatment assignment,
+        d.
+
+        :param X: The data containing the test and control populations
+        :param x: The name of the confounding column.
+        :param d: The name of the treatment assignment variable.
+        :return:
+        """
         numerator = X[X[d] == 1].mean()[x] - X[X[d] == 0].mean()[x]
         denominator = np.sqrt((X[X[d] == 1].var()[x] + X[X[d] == 0].var()[x])/2.)
         return numerator / denominator
