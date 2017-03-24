@@ -122,7 +122,7 @@ class PropensityScoreMatching(object):
         X.loc[:,'propensity score'] = model.predict(df[regression_confounders])
         return X
 
-    def match(self, X, assignment='assignment', score='propensity score', n_neighbors=2):
+    def match(self, X, assignment='assignment', score='propensity score', n_neighbors=2, jitter=None):
         """
         For each unit in the test group, match n_neighbors units in the control group with the closest propensity scores
         (matching with replacement).
@@ -131,11 +131,17 @@ class PropensityScoreMatching(object):
         :param assignment: A categorical variable (currently, 0 or 1) indicating test or control group, resp.
         :param score: The name of the column in X containing the propensity scores. Default is 'propensity score'
         :param n_neighbors: The number of neighbors to match to each unit.
+        :param jitter: float. whether to add jitter to the propensity scores. This is useful if the control variables are
+        discrete, so you select more than just a few control entries for matching (many entries would have the same
+        propensity scores).
         :return: two dataframes. the first contains the treatment units, and the second contains all of the control units
         that have been matched to the treatment units. The treatment unit dataframe (first dataframe) contains a new
         column with the indices of the matches in the control dataframe called 'matches'.
         """
 
+        if jitter:
+            score_std = X[score].std()
+            X[score] = X[score] * (1. + jitter * score_std * np.random.normal(size=len(X)))
         treatments = X[X[assignment] == 1]
         control = X[X[assignment] == 0]
         neighbor_search = NearestNeighbors(metric='euclidean', n_neighbors=n_neighbors)
