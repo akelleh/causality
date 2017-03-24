@@ -3,6 +3,7 @@ from statsmodels.regression.linear_model import OLS
 from statsmodels.robust.robust_linear_model import RLM
 from statsmodels.discrete.discrete_model import Logit
 from sklearn.neighbors import NearestNeighbors
+import numpy as np
 
 
 class DifferenceInDifferences(object):
@@ -216,3 +217,32 @@ class PropensityScoreMatching(object):
         atc = self.estimate_ATC(X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
         p_assignment = len(X[X[assignment] == 1]) / float(len(X))
         return p_assignment*att + (1-p_assignment)*atc
+
+    def assess_balance(self, X, assignment, confounder_types):
+        imbalances = {}
+        for confounder, confounder_type in confounder_types.items():
+            if confounder_type != 'c':
+                confounder_dummies = pd.get_dummies(X[confounder], prefix=confounder)
+                X[confounder_dummies.columns] = confounder_dummies
+                dummy_imbalances = []
+                for dummy in confounder_dummies.columns:
+                    dummy_imbalances.append(np.abs(self.calculate_imbalance(X, dummy, assignment)))
+                imbalances[confounder] = sum(dummy_imbalances)
+            else:
+                imbalance = self.calculate_imbalance(X, confounder, assignment)
+                imbalances[confounder] = imbalance
+        return imbalances
+
+    def calculate_imbalance(self, X, x, d):
+        """
+        Calculate the balance metric to assess how unbalanced x is across the two levels of (binary) treatment assignment,
+        d.
+
+        :param X: The data containing the test and control populations
+        :param x: The name of the confounding column.
+        :param d: The name of the treatment assignment variable.
+        :return:
+        """
+        numerator = X[X[d] == 1].mean()[x] - X[X[d] == 0].mean()[x]
+        denominator = np.sqrt((X[X[d] == 1].var()[x] + X[X[d] == 0].var()[x])/2.)
+        return numerator / denominator
