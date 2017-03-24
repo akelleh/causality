@@ -218,18 +218,22 @@ class PropensityScoreMatching(object):
         p_assignment = len(X[X[assignment] == 1]) / float(len(X))
         return p_assignment*att + (1-p_assignment)*atc
 
-    def assess_balance(self, X, treated, control, assignment, confounder_types):
-        initial_imbalances = {}
-        for confounder, confounder_type in confounder_types:
+    def assess_balance(self, X, assignment, confounder_types):
+        imbalances = {}
+        for confounder, confounder_type in confounder_types.items():
             if confounder_type != 'c':
-                # find dummies and test each value
-                
+                confounder_dummies = pd.get_dummies(X[confounder], prefix=confounder)
+                X[confounder_dummies.columns] = confounder_dummies
+                dummy_imbalances = []
+                for dummy in confounder_dummies.columns:
+                    dummy_imbalances.append(np.abs(self.calculate_imbalance(X, dummy, assignment)))
+                imbalances[confounder] = sum(dummy_imbalances)
             else:
                 imbalance = self.calculate_imbalance(X, confounder, assignment)
-                initial_imbalances['confounder'] = imbalance
-        return initial_imbalances
+                imbalances[confounder] = imbalance
+        return imbalances
 
-    def calculate_balance(self, X, x, d):
+    def calculate_imbalance(self, X, x, d):
         """
         Calculate the balance metric to assess how unbalanced x is across the two levels of (binary) treatment assignment,
         d.
