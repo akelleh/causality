@@ -141,9 +141,17 @@ class PropensityScoreMatching(object):
         neighbor_search = NearestNeighbors(metric='euclidean', n_neighbors=n_neighbors)
         neighbor_search.fit(control[[score]].values)
         treatments.loc[:, 'matches'] = treatments[score].apply(lambda x: neighbor_search.kneighbors(x)[1])
-        return treatments, control
+        join_data = []
+        control = control.reset_index()
+        for treatment_index, row in treatments.iterrows():
+            matches = row['matches'].flatten()
+            for match in matches:
+                join_data.append({'treatment_index': treatment_index, 'control_index': match})
+        join_data = pd.DataFrame(join_data)
+        matched_control = join_data.join(control, on='control_index')
+        return treatments, matched_control
 
-    def estimate_treatments(self, treatments, control, outcome):
+    def estimate_treatments(self, treatments, matched_control, outcome):
         """
         Find the average outcome of the matched control units for each treatment unit. Add it to the treatment dataframe
         as a new column called 'control outcome'.
@@ -156,11 +164,10 @@ class PropensityScoreMatching(object):
         :return: The treatment dataframe with the matched control outcome for each unit in a new column,
         'control outcome'.
         """
-
-        def get_matched_outcome(matches):
-            return sum([control[outcome].values[i] / float(len(matches[0])) for i in matches[0]])
-        treatments.loc[:,'control outcome'] = treatments['matches'].apply(get_matched_outcome)
-        return treatments
+        control_outcomes = matched_control.groupby('treatment_index').mean()[[outcome]]
+        control_outcomes['control outcome'] = control_outcomes[outcome]
+        del control_outcomes[outcome]
+        return treatments.join(control_outcomes)
 
     def estimate_ATT(self, X, assignment, outcome, confounder_types, n_neighbors=5):
         """
@@ -176,8 +183,8 @@ class PropensityScoreMatching(object):
         :return: a float representing the treatment effect on the treated
         """
         X = self.score(X, confounder_types, assignment)
-        treatments, control = self.match(X, assignment=assignment, score='propensity score', n_neighbors=n_neighbors)
-        treatments = self.estimate_treatments(treatments, control, outcome)
+        treatments, matched_control = self.match(X, assignment=assignment, score='propensity score', n_neighbors=n_neighbors)
+        treatments = self.estimate_treatments(treatments, matched_control, outcome)
         y_hat_treated = treatments[outcome].mean()
         y_hat_control = treatments['control outcome'].mean()
         return y_hat_treated - y_hat_control
