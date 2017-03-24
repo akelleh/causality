@@ -219,6 +219,18 @@ class PropensityScoreMatching(object):
         return p_assignment*att + (1-p_assignment)*atc
 
     def assess_balance(self, X, assignment, confounder_types):
+        """
+        Given a data frame X, and a set of confounders, calculate the imbalance of the confounders over the (binary)
+        treatment assignment. This makes a good optimization metric when choosing different regression models for
+        the propensity score.
+
+        :param X: The dataframe containing at least the assignment, the control variables, and the outcome variables.
+        There's no need to turn the control variables into dummies -- that is handled automatically.
+        :param assignment: The name of the column in the dataframe containing the binary treatment assignment.
+        :param confounder_types: A dictionary containing the names of the columns in the dataframe holding the control
+        variables, and the type of each of those variables ('c' = continuous, 'o' = ordinal, 'd' = discrete)
+        :return: a dictionary containing the name of each control variable and the amount of imbalance on that variable.
+        """
         imbalances = {}
         for confounder, confounder_type in confounder_types.items():
             if confounder_type != 'c':
