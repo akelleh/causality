@@ -122,7 +122,7 @@ class PropensityScoreMatching(object):
         X.loc[:,'propensity score'] = model.predict(df[regression_confounders])
         return X
 
-    def match(self, X, assignment='assignment', score='propensity score', n_neighbors=2, jitter=None):
+    def match(self, X, assignment='assignment', score='propensity score', n_neighbors=2, treated_value=1, control_value=0):
         """
         For each unit in the test group, match n_neighbors units in the control group with the closest propensity scores
         (matching with replacement).
@@ -131,31 +131,47 @@ class PropensityScoreMatching(object):
         :param assignment: A categorical variable (currently, 0 or 1) indicating test or control group, resp.
         :param score: The name of the column in X containing the propensity scores. Default is 'propensity score'
         :param n_neighbors: The number of neighbors to match to each unit.
-        :param jitter: float. whether to add jitter to the propensity scores. This is useful if the control variables are
-        discrete, so you select more than just a few control entries for matching (many entries would have the same
-        propensity scores).
         :return: two dataframes. the first contains the treatment units, and the second contains all of the control units
         that have been matched to the treatment units. The treatment unit dataframe (first dataframe) contains a new
         column with the indices of the matches in the control dataframe called 'matches'.
         """
-
-        if jitter:
-            score_std = X[score].std()
-            X[score] = X[score] * (1. + jitter * score_std * np.random.normal(size=len(X)))
-        treatments = X[X[assignment] == 1]
-        control = X[X[assignment] == 0]
+        X = X.reset_index()
+        treated = X[X[assignment] == treated_value]
+        control = X[X[assignment] == control_value]
         neighbor_search = NearestNeighbors(metric='euclidean', n_neighbors=n_neighbors)
         neighbor_search.fit(control[[score]].values)
-        treatments.loc[:, 'matches'] = treatments[score].apply(lambda x: neighbor_search.kneighbors(x)[1])
+        treated.loc[:, 'matches'] = treated[score].apply(lambda x: self.get_matches(x, control, neighbor_search, score, n_neighbors))
         join_data = []
-        control = control.reset_index()
-        for treatment_index, row in treatments.iterrows():
+        for treatment_index, row in treated.iterrows():
             matches = row['matches'].flatten()
             for match in matches:
                 join_data.append({'treatment_index': treatment_index, 'control_index': match})
         join_data = pd.DataFrame(join_data)
         matched_control = join_data.join(control, on='control_index')
-        return treatments, matched_control
+        del treated['matches']
+        del matched_control['control_index']
+        return treated, matched_control
+
+
+    def get_matches(self, score, control, knn, score_name, n_neighbors):
+        """
+        Discrete covariates can result in many unit having exactly the same propensity score. Since we don't get random
+        neighbors, we'd end up using the same units over and over again when matching. Instead, we should find all units
+        within the same distance as the closest n units, and randomly select matches from those.
+
+        :param score: The score of the treatment unit we're matching
+        :param control: the dataframe of control units we might match.
+        :param knn: the K nearest neighbors model, a trained sklearn NearestNeighbors model
+        :param score_name: The dataframe column in the control df with the propensity scores
+        :param n_neighbors: The number of matches we'd like
+        :return: The control indices of the matched units.
+        """
+        max_distance = max(knn.kneighbors(score)[0].flatten())
+        lower_score = score - max_distance
+        upper_score = score + max_distance
+        gt = control[control[score_name] >= lower_score]
+        return gt[gt[score_name] <= upper_score].sample(n_neighbors).index.values
+
 
     def estimate_treatments(self, treatments, matched_control, outcome):
         """
