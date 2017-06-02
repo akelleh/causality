@@ -111,8 +111,8 @@ class PropensityScoreMatching(object):
                     regression_confounders.extend(c_dummies.columns[1:])
             else:
                 regression_confounders.append(confounder)
-                df.loc[:,confounder] = X[confounder].copy() #
-                df.loc[:,confounder] = X[confounder].copy() #
+                df.loc[:,confounder] = X[confounder].copy()
+                df.loc[:,confounder] = X[confounder].copy()
         if intercept:
             df.loc[:,'intercept'] = 1.
             regression_confounders.append('intercept')

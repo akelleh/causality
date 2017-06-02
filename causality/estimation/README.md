@@ -75,7 +75,7 @@ Since we can't measure these potential outcome variables, we want to use Propens
 > matcher.estimate_ATE(X, 'd', 'y', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
 -0.00011
 ```
-and so we get the right average treatment effect (within measurement error). Bootstrap error bars are coming soon.
+and so we get the right average treatment effect (within measurement error). If you pass the argument `bootstrap=True` to the `estimate_ATE` method, it will return a 95\% confidence interval (bootstrap estimate) for the ATE. Bootstrap methods tend to be [conservative](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4260115/).
 
 Here, we put in a dataframe, `X`, that contains a binary treatment assignment column, `'d'`, an outcome column, `'y'`, and a dictionary of variables to control for. The keys are the names of the columns to use for controlling, and the values are one of `('c', 'o', 'u')` corresponding to continuous, ordered discrete, or unordered discrete variables, respectively.
  
