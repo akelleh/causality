@@ -3,6 +3,7 @@ from statsmodels.regression.linear_model import OLS
 from statsmodels.robust.robust_linear_model import RLM
 from statsmodels.discrete.discrete_model import Logit
 from sklearn.neighbors import NearestNeighbors
+from causality.util import bootstrap_statistic
 import numpy as np
 
 
@@ -191,7 +192,7 @@ class PropensityScoreMatching(object):
         del control_outcomes[outcome]
         return treatments.join(control_outcomes)
 
-    def estimate_ATT(self, X, assignment, outcome, confounder_types, n_neighbors=5):
+    def estimate_ATT(self, X, assignment, outcome, confounder_types, n_neighbors=5, bootstrap=False):
         """
         Estimate the average treatment effect for people who normally take the test assignment. Assumes a 1 for
         the test assignment, 0 for the control assignment.
@@ -206,12 +207,20 @@ class PropensityScoreMatching(object):
         """
         X = self.score(X, confounder_types, assignment)
         treatments, matched_control = self.match(X, assignment=assignment, score='propensity score', n_neighbors=n_neighbors)
-        treatments = self.estimate_treatments(treatments, matched_control, outcome)
-        y_hat_treated = treatments[outcome].mean()
-        y_hat_control = treatments['control outcome'].mean()
-        return y_hat_treated - y_hat_control
+        df = treatments.append(matched_control)
+        def estimate_ATT(df):
+            treated = df[df[assignment]==1]
+            control = df[df[assignment]==0]
+            treatments = self.estimate_treatments(treated, control, outcome)
+            y_hat_treated = treatments[outcome].mean()
+            y_hat_control = treatments['control outcome'].mean()
+            return y_hat_treated - y_hat_control
+        if bootstrap:
+            return bootstrap_statistic(df, estimate_ATT)
+        else:
+            return estimate_ATT(df)
 
-    def estimate_ATC(self, X, assignment, outcome, confounder_types, n_neighbors=5):
+    def estimate_ATC(self, X, assignment, outcome, confounder_types, n_neighbors=5, bootstrap=False):
         """
         Estimate the average treatment effect for people who normally take the control assignment. Assumes a 1 for
         the test assignment, 0 for the control assignment.
@@ -226,9 +235,15 @@ class PropensityScoreMatching(object):
         """
         df = X.copy()
         df[assignment] = (df[assignment] + 1) % 2
-        return -self.estimate_ATT(df, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
+        if bootstrap:
+            lower ,expec, upper = self.estimate_ATT(df, assignment, outcome, confounder_types,
+                                                    n_neighbors=n_neighbors, bootstrap=bootstrap)
+            return -lower, -expec, -upper
 
-    def estimate_ATE(self, X, assignment, outcome, confounder_types, n_neighbors=5):
+        else:
+            return -self.estimate_ATT(df, assignment, outcome, confounder_types, n_neighbors=n_neighbors, bootstrap=bootstrap)
+
+    def estimate_ATE(self, X, assignment, outcome, confounder_types, n_neighbors=5, bootstrap=False):
         """
         Find the Average Treatment Effect(ATE) on the population. An ATE can be estimated as a weighted average of the
         ATT and ATC, weighted by the proportion of the population who is treated or not, resp. Assumes a 1 for
@@ -242,10 +257,16 @@ class PropensityScoreMatching(object):
         :param n_neighbors: An integer for the number of neighbors to use with k-nearest-neighbor matching
         :return: a float representing the average treatment effect
         """
-        att = self.estimate_ATT(X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
-        atc = self.estimate_ATC(X, assignment, outcome, confounder_types, n_neighbors=n_neighbors)
+        att = self.estimate_ATT(X, assignment, outcome, confounder_types, n_neighbors=n_neighbors, bootstrap=bootstrap)
+        atc = self.estimate_ATC(X, assignment, outcome, confounder_types, n_neighbors=n_neighbors, bootstrap=bootstrap)
         p_assignment = len(X[X[assignment] == 1]) / float(len(X))
-        return p_assignment*att + (1-p_assignment)*atc
+        if bootstrap:
+            lower = p_assignment*att[0] + (1-p_assignment)*atc[0]
+            expec = p_assignment*att[1] + (1-p_assignment)*atc[1]
+            upper = p_assignment*att[2] + (1-p_assignment)*atc[2]
+            return lower, expec, upper
+        else:
+            return p_assignment*att + (1-p_assignment)*atc
 
     def assess_balance(self, X, assignment, confounder_types):
         """
