@@ -28,9 +28,58 @@ Let's run through a quick example of propensity score matching to see how easy i
 First, we need to generate a data set that has some bias, since we're dealing with observational data. This will simulate an observational data set where the treatment's effectiveness varies depending on some other variables, Z. These will also correlate with whether a unit is assigned to the treatment or control group.
 
 ```python
-asdf
+import pandas as pd
+import numpy as np
+from causality.estimation.parametric import PropensityScoreMatching
 
+N = 10000
+z1 = np.random.normal(size=N)
+z2 = np.random.normal(size=N)
+z3 = np.random.normal(size=N)
+arg = z1 + z2 + z3 #+ np.random.normal(size=N)
+p = 1. / (1. + np.exp(-arg/4.))
+d = np.random.binomial(1, p=p)
+
+y0 = np.random.normal()
+y1 = y0 + arg
+
+y = d*y1 + (1-d)*y0
+
+X = pd.DataFrame({'d': d, 'z1': z1, 'z2': z2, 'z3': z3, 'y': y, 'y0': y0, 'y1': y1, 'p': p})
 ```
+
+The variable `y0` is the value that `y` would take if the unit is in the control group. The variable `y1` is the value the unit would take if it were in the test group. A unit can only be in one group when you measure its outcome, so you can only measure y = y0 or y = y1 in practice. These variables are called "potential outcomes," because they are the outcomes that are possible for each unit, depending on which treatment state the unit is assigned to.
+
+Normally, you can't observe potential outcomes. The only reason we have them here is because we wrote the data-generating process.  
+ 
+The variable `d` is a `1` if a unit is in the test group, and a `0` if they are in the control group. The outcome is defined using this variable as a switch to pick out the right potential outcome for the units treatment assignment. If `d=1`, then `y=y1`, and `d=0` implies `y=y0`.
+
+Notice that these `z` variables determine both whether a unit will be assigned to the treatment (the higher the `z`s are, the higher `p` is), and the outcome (`arg` is just the sum of the `z`s, so higher `z` means higher treatment effectiveness.).  This results in bias if you just use a naive estimate for the average treatment effectiveness:
+
+```python
+> X[X['d'] == 1].mean()['y'] - X[X['d'] == 0].mean()['y']
+0.3648
+```
+Taking a look at the true average treatment effect, the average difference between `(y1 - y0).mean()`, we can read off that it's just the average of `arg`. `arg` is the sum of three normal variables, so has mean zero. Thus, there is no average treatment effect! Our naive estimate of `0.36` is far from the true value. We can calculate the true value directly:
+ 
+```python
+> (y1 - y0).mean()
+-0.0002
+```
+ 
+which is only different from zero due to sampling error.
+
+Since we can't measure these potential outcome variables, we want to use PropensityScoreMatching to control for the variables that cause the bias. We can do this very easily!
+```python
+> matcher = PropensityScoreMatching()
+> matcher.estimate_ATE(X, 'd', 'y', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
+-0.00011
+```
+and so we get the right average treatment effect (within measurement error). Bootstrap error bars are coming soon.
+
+Here, we put in a dataframe, `X`, that contains a binary treatment assignment column, `'d'`, an outcome column, `'y'`, and a dictionary of variables to control for. The keys are the names of the columns to use for controlling, and the values are one of `('c', 'o', 'u')` corresponding to continuous, ordered discrete, or unordered discrete variables, respectively.
+ 
+When you pass these arguments, the method builds a logistic regression model using the control variables to predict treatment assignment. The probabilities of treatment assingment, a.k.a. propensity scores, are used to match the treatment and control units using nearest neighbors (with a heuristic to improve matching for discrete variables). The matches are then used to calculate treatment effects on typical treated individuals, and typical control individuals, and then these effects are weighted and averaged to get the averate treatment effect on the whole population. This should agree with the value (within sampling error) of `(y1 - y0).mean()`, which is what we were trying to calculate!
 
 ### nonparametric
 
