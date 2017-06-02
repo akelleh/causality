@@ -81,6 +81,13 @@ Here, we put in a dataframe, `X`, that contains a binary treatment assignment co
  
 When you pass these arguments, the method builds a logistic regression model using the control variables to predict treatment assignment. The probabilities of treatment assingment, a.k.a. propensity scores, are used to match the treatment and control units using nearest neighbors (with a heuristic to improve matching for discrete variables). The matches are then used to calculate treatment effects on typical treated individuals, and typical control individuals, and then these effects are weighted and averaged to get the averate treatment effect on the whole population. This should agree with the value (within sampling error) of `(y1 - y0).mean()`, which is what we were trying to calculate!
 
+There are a few critical assumptions to make sure your model gives a good estimate of the true average treatment effect (ATE). 
+
+1. You must control for common causes of treatment status and the outcome (more precisely, a minimal set of common causes satisfying "the back-door criterion", see Pearl's book [here](http://bayes.cs.ucla.edu/BOOK-2K/ch3-3.pdf)). This can be the biggest show-stopper, because you may not know what all the common causes are, and you may not have them measured even if you do know.
+2. The propensity score model (by default, logistic regression) must be the right model for the propensity scores. Misspecification (e.g. non-linearity, or even a different link function) will lead to systematic error in propensity scores, which can hurt the quality of your matching. 
+3. The true propensity scores must be "probabilistic", and not deterministic. In other words, they must be strictly between 0 and 1 (and not equal to zero or one).
+4. The test and control group must have the same support over the Z variables. If there are regions of Z where there are test units, but not control units, you can't estimate the average treatment effect, but might still be able to get a conditional average treatment effect. See Morgan and Winship's discussion in the book mentioned above for more details.
+
 ### nonparametric
 
 
