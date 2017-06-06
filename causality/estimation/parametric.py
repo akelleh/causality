@@ -303,9 +303,9 @@ class PropensityScoreMatching(object):
         control = X[X[assignment] == 0]
 
         for zi in confounder_types.keys():
-            test[zi].hist(bins=30, alpha=0.5)
-            control[zi].hist(bins=30, alpha=0.5)
-            pp.title('Test and Control Support for {}'.format(zi));
+            test[zi].hist(bins=30, alpha=0.5, color='r')
+            control[zi].hist(bins=30, alpha=0.5, color='b')
+            pp.title('Test (red) and Control (blue) Support for {}'.format(zi));
             pp.xlabel(zi)
             pp.ylabel('Count')
             pp.show()
