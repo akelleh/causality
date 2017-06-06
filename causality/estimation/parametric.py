@@ -308,3 +308,27 @@ class PropensityScoreMatching(object):
         numerator = X[X[d] == 1].mean()[x] - X[X[d] == 0].mean()[x]
         denominator = np.sqrt((X[X[d] == 1].var()[x] + X[X[d] == 0].var()[x])/2.)
         return numerator / denominator
+
+    def check_support(self, X, assignment, confounder_types=None):
+        """
+        Check the 1-d support over all the confounders. You should check higher-dimensional supports yourself.
+        This will plot the histograms of the test and control data, so you can visually assess the region
+        of common support.
+        :param X: You dataframe containing, minimally, the assignment and confounders.
+        :param confounder_types: A dictionary where the keys are the names of the confounders, and the values are
+        one of 'd', 'o', or 'c'.
+        :return: None
+        """
+        import matplotlib.pyplot as pp
+        test = X[X[assignment] == 1]
+        control = X[X[assignment] == 0]
+
+        for zi in confounder_types.keys():
+            test[zi].hist(bins=30, alpha=0.5, color='r')
+            control[zi].hist(bins=30, alpha=0.5, color='b')
+            pp.title('Test (red) and Control (blue) Support for {}'.format(zi));
+            pp.xlabel(zi)
+            pp.ylabel('Count')
+            pp.show()
+
+

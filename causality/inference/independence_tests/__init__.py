@@ -365,29 +365,3 @@ class MixedMutualInformationTest(object):
         iterations = samples * thin + burn
         mcmc.sample(iter=iterations, burn=burn, thin=thin)
         return pd.DataFrame(mcmc.trace('joint_sample')[:], columns=x+y+z)
-
-if __name__=="__main__":
-    size = 500
-    x = ['x2']
-    y = ['x3']
-    z = []#['x1']#[]
-    alpha = 0.05
-    x1 = np.random.normal(size=size)
-    x2 = 5.*np.random.normal(size=size) + x1
-    x3 = np.array([int(round(xi)) for xi in x2])#np.random.normal(size=size) + x2 #[int(round(xi)) for xi in x2] 
-    X = pd.DataFrame({'x1':x1,'x2':x2, 'x3':x3})
-    print X.head()
-    test = MixedMutualInformationTest(y, x, z, X, alpha, variable_types={'x1':'c', 'x2':'c', 'x3':'o'}) #MixedChiSquaredTest(y, x, z, X, alpha, variable_types={'x1':'c', 'x2':'c', 'x3':'c'})
-    print 'null', test.mi_bound
-    print 'actual', test.mi
-    print test.independent()
-    raise Exception
-    X_sampled = test.generate_ci_sample()
-    print X.corr()
-    print X_sampled.corr()
-    regression = sm.RLM(X[y], X[x+z])
-    result = regression.fit()
-    print result.summary()
-    regression = sm.RLM(X_sampled[y], X_sampled[x+z])
-    result = regression.fit()
-    print result.summary()
