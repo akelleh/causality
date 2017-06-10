@@ -130,6 +130,7 @@ There are a few critical assumptions to make sure your model gives a good estima
 3. The true propensity scores must be "probabilistic", and not deterministic. In other words, they must be strictly between 0 and 1 (and not equal to zero or one).
 4. The test and control group must have the same support over the Z variables. If there are regions of Z where there are test units, but not control units, you can't estimate the average treatment effect, but might still be able to get a conditional average treatment effect. See Morgan and Winship's discussion in the book mentioned above for more details.
 
+###### Checking the Common Support
 Assuming these are satisfied, we can at least check that our matching does what we're expecting. First, a requirement of PSM is that the covariates overlap. You should technically check this for the `N` dimensional space of all `N` of your covariates, but we make it easy to check the `1-D` subspaces. Run
 
 ```python 
@@ -143,9 +144,63 @@ And you'll find the following plots
 
 You can see visually that the distributions overlap well on the x-axis. Thus, the Z's (at least in 1-D) share a common support, and the assumption is satisfied.
 
-'
-### nonparametric
+###### Checking Covariate Balance
 
+If the matching we're doing does a good job of making the test and control groups "look like" each other in terms of the `Z` variables, then we should find that statistics of the `Z` variables between the test and control groups are the same. This isn't actually a requirement of PSM, but if the test and ctontrol are balanced on `Z`, then they should be balanced on the propensity scores. We have a handy tool for checking balance.
+
+```python
+matcher.assess_balance(X, 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
+```
+
+will return 
+
+```python
+{'z1': 0.2458132624378607,
+ 'z2': 0.26803071286101415,
+ 'z3': 0.22545847989783488}
+```
+ 
+so there is a fair amount of imbalance before matching. Next, we can get matched test and control groups. First, we need to generate the propensity scores,
+
+```python
+X = matcher.score(X, assignment='d', confounder_types={'z1': 'c', 'z2': 'c', 'z3': 'c'})
+```
+
+so now we have a new column in `X` labelled `propensity score`. Now, we'll run the matching
+
+```python
+treated, control = matcher.match(X, assignment='d')
+```
+
+and finally re-assess the balance after matching
+
+```python
+matcher.assess_balance(treated.append(control), 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
+{'z1': 0.00031457811654961971,
+ 'z2': 0.01274281423785816,
+ 'z3': -0.01515794796420316}
+```
+
+Note that you can use this feature to assess balance on the propensity score after adding it to `X`,
+
+```python
+matcher.assess_balance(X, 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c', 'propensity score': 'c'})
+{'propensity score': 0.44348102876997414,
+ 'z1': 0.26127781471482076,
+ 'z2': 0.2577923164800251,
+ 'z3': 0.24351497330531932}
+ 
+matcher.assess_balance(treated.append(control), 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c', 'propensity score': 'c'})
+ {'propensity score': 0.00067420782959645405,
+  'z1': 4.3693151229817443e-05,
+  'z2': -0.0044512025748346248,
+  'z3': 0.006435102509766962}
+```
+
+so indeed we've done a good job of balancing the propensity scores between the groups.
+
+
+### nonparametric
 Documentation in progress!
 
 ### adjustments
