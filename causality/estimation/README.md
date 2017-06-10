@@ -130,7 +130,24 @@ There are a few critical assumptions to make sure your model gives a good estima
 3. The true propensity scores must be "probabilistic", and not deterministic. In other words, they must be strictly between 0 and 1 (and not equal to zero or one).
 4. The test and control group must have the same support over the Z variables. If there are regions of Z where there are test units, but not control units, you can't estimate the average treatment effect, but might still be able to get a conditional average treatment effect. See Morgan and Winship's discussion in the book mentioned above for more details.
 
+Assuming these are satisfied, we can at least check that our matching does what we're expecting. First, a requirement of PSM is that the covariates overlap. You should technically check this for the `N` dimensional space of all `N` of your covariates, but we make it easy to check the `1-D` subspaces. Run
+
+```python 
+matcher.check_support(X, 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
+```
+
+And you'll find the following plots
+![z1 support](./img/z1_support.png)
+![z2 support](./img/z2_support.png)
+![z3 support](./img/z3_support.png)
+
+You can see visually that the distributions overlap well on the x-axis. Thus, the Z's (at least in 1-D) share a common support, and the assumption is satisfied.
+
+'
 ### nonparametric
 
+Documentation in progress!
 
 ### adjustments
+
+Documentation in progress!
