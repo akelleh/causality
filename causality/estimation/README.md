@@ -23,7 +23,7 @@ Propensity score matching tries to attack the problem of dissimilar test and con
 
 Suppose we're in the publishing business, and we're interested in the effect of "the length of an article title" on "the click-through rate of the article" (the proportion of times when a link to an article is seen and also clicked). To make things really simple, we'll just consider "long" titles and "short" titles. We're interested in how much better a long title clicks than a short title.
 
-There's a big problem: we can't force our writers to make their titles a certain length. Even worse, we think that our better writers tend to write shorter titles. Since they're better writers, their titles also tend to click better _independently from the effects of the length of the title on click-through rates_. This results in a (negative) correlation between title length and click-through rates, even if there is no causal effect! They are both caused by the author.
+There's a big problem: we can't force our writers to make their titles a certain length. Even worse, we think that our better writers tend to write longer titles. Since they're better writers, their titles also tend to click better _independently from the effects of the length of the title on click-through rates_. This results in a correlation between title length and click-through rates, even if there is no causal effect! They are both caused by the author.
 
 In order to handle this, we can try to control for the effect of the author. There's a direct way to do this, by looking at the effect of title length on click-through rates for each author, and then averaging over authors. That way, each effect measurement controls for author, and you average the effect measurements together to get the total result. This easy to do when we only care about one variable, but usually we want to control for a lot more. Consider that the vertical (e.g. news, entertainment, etc.) the author writes for might also confound the effect (e.g. news headlines might be longer, but also more interesting and so clickier). The more variables there are to control for, the harder it is to find data for every possible combination of values. This is where propensity score matching really shines: if you're willing to assume a model for the propensity scores, then you can do this kind of controlling. In this package, we build in a logistic regression model. In general, you can use any model you like.
 
@@ -43,13 +43,15 @@ Now, we'll do a more in-depth example which will involve examining whether a few
 
 ##### Detailed Example
 
-Propensity score matching does a lot of work internally. It attempts to find treatment and control units who are similar to each other, so any differences in them can be attributed to the difference treatment assignments.
+Propensity score matching does a lot of work internally. It attempts to find treatment and control units who are similar to each other, so any differences in them can be attributed to the difference treatment assignments. We're making a few assumptions here. The most critical is probably that we've controlled for all of the variables that say whether two units are "similar enough" to be matched together. There is a very technical criterion called the ["back-door criterion"](http://bayes.cs.ucla.edu/BOOK-2K/ch3-3.pdf) (BDC) that answers this question. It's impossible to check without doing an experiment. This is a common problem with using observational data. For this reason, most methods are really just "best guesses" of the true results. Generally, you hope that controlling for more things removes bias, but even this isn't guaranteed.
 
-There are a few diagnostics that help you figure out whether you've done a good job matching. Once you've done the matching, the distribution of the Z's between the test and control should end up pretty similar. The easiest trick is probably to examine the average value of each Z between the test and control group, and make sure most of the difference is gone. If so, your matching is probably okay. If not, you should play with the matching algorithm's parameters and try to do a better job.
+There are, however, a few diagnostics that help you figure out whether you've done a good job matching. Once you've done the matching, the distribution of the Z's between the test and control should end up pretty similar. The easiest trick is probably to examine the average value of each Z between the test and control group, and make sure most of the difference is gone. If so, your matching is probably okay. If not, you should play with the matching algorithm's parameters and try to do a better job. This works well in practice, but it has been noted that you [can actually increase imbalance using PSM](https://gking.harvard.edu/files/gking/files/psnot.pdf). What you really care about is that you have controlled for all the relevant variables, and that the propensity scores are balanced. These scores satisfy the BDC if the variables that generate them do, and if the model used to estimate them is correct. Thus, controlling for propensity scores, if your modeling assumptions are correct, is sufficient.
 
 Let's run through a quick example of propensity score matching to see how easy it can be!
 
 First, we need to generate a data set that has some bias, since we're dealing with observational data. This will simulate an observational data set where the treatment's effectiveness varies depending on some other variables, Z. These will also correlate with whether a unit is assigned to the treatment or control group.
+
+First, lets's generate our Z variables. These are analogous to "vertical" and "author" from the simple example before. Here, we'll make them continuous.'
 
 ```python
 import pandas as pd
@@ -60,31 +62,45 @@ N = 10000
 z1 = np.random.normal(size=N)
 z2 = np.random.normal(size=N)
 z3 = np.random.normal(size=N)
-arg = z1 + z2 + z3 #+ np.random.normal(size=N)
-p = 1. / (1. + np.exp(-arg/4.))
-d = np.random.binomial(1, p=p)
-
-y0 = np.random.normal()
-y1 = y0 + arg
-
-y = d*y1 + (1-d)*y0
-
-X = pd.DataFrame({'d': d, 'z1': z1, 'z2': z2, 'z3': z3, 'y': y, 'y0': y0, 'y1': y1, 'p': p})
 ```
 
-The variable `y0` is the value that `y` would take if the unit is in the control group. The variable `y1` is the value the unit would take if it were in the test group. A unit can only be in one group when you measure its outcome, so you can only measure y = y0 or y = y1 in practice. These variables are called "potential outcomes," because they are the outcomes that are possible for each unit, depending on which treatment state the unit is assigned to.
+Next, we want to define the variable that is analogous to "long" or "short" title. We want someone to be more likely to use a long title if the Z variables are higher, so we'll make the probability of `d=1` higher if any Z is higher, using a logistic function.
 
-Normally, you can't observe potential outcomes. The only reason we have them here is because we wrote the data-generating process.  
+```python
+p_d = 1. / (1. + np.exp(-(z1 + z2 + z3)/4.))
+d = np.random.binomial(1, p=p_d)
+```
+
+So people use long titles with a probability `p_d`.
+
+
+Next, we want to define our outcomes. We'll call these `y`. Before, these were just CTRs, so they were between 0 and 1. Now, they'll be real-valued. To make the effect of the treatment really explicit, we'll explicitly define the outcome for each unit in the case theat they're assigned to the `d=1` state, `y1`, or the `d=0` state, `y0`. These variables are called the "potential outcomes". They are the outcomes that are possible for each unit, depending on the `d` variable. `d` is often called the "treatment assignment," since the effect we're looking for is actually the result of an imaginary completely randomized experiment, where we randomized assigning some articles to having long titles, and others to having short titles.
+
+The `d=0` outcome will be normal random. This is the baseline success for each article title. The `d=1` state will be the `d=0` state plus a difference that depends on the `z` variables.
+
+```python
+y0 = np.random.normal()
+y1 = y0 + z1 + z2 + z3
+```
+The difference between these is just `z1 + z2 + z3`. This is a weird effect. It says that if an article has a long title, then it will perform `z1 + z2 + z3` better than if the article has a short title, everything else held fixed. The weirdness here is the dependence on the Z variables: people with higher Z tend to write better long titles than people with lower Z. If some of these Z variables represent the skill of the author, then we interpret this as "when a skillful author writes a longer title, it tends to perform better than when they write a short title by and amount that depends on the author's skill.". 
+
+Now, we just need to define the actual measured outcome. The `d` variable chooses whether each article has a long or short title, so it chooses between the `y0` and `y1` outcomes. We'll put it all together into a dataframe.
+
+```python
+y = (d==1)*y1 + (d==0)*y0
+
+X = pd.DataFrame({'d': d, 'z1': z1, 'z2': z2, 'z3': z3, 'y': y, 'y0': y0, 'y1': y1, 'p': p_d})
+```
+
+The variable `y0` is the value that `y` would take if the unit is in the control group. The variable `y1` is the value the unit would take if it were in the test group. A unit can only be in one group when you measure its outcome, so you can only measure `y = y0`` or `y = y1`` in practice. Normally, you can't observe the potential outcomes. The only reason we have them here is because we wrote the data-generating process.  
  
-The variable `d` is a `1` if a unit is in the test group, and a `0` if they are in the control group. The outcome is defined using this variable as a switch to pick out the right potential outcome for the units treatment assignment. If `d=1`, then `y=y1`, and `d=0` implies `y=y0`.
-
-Notice that these `z` variables determine both whether a unit will be assigned to the treatment (the higher the `z`s are, the higher `p` is), and the outcome (`arg` is just the sum of the `z`s, so higher `z` means higher treatment effectiveness.).  This results in bias if you just use a naive estimate for the average treatment effectiveness:
+Notice that these Z variables determine both whether a unit will be assigned to the `d=0` or `d=1` state (the higher the `z`s are, the higher `p_d` is), and they also determine the size of the outcome (the difference is just the sum of the `z`s, so higher `z` means higher treatment effectiveness.).  This results in bias if you just use a naive estimate for the average treatment effectiveness:
 
 ```python
 > X[X['d'] == 1].mean()['y'] - X[X['d'] == 0].mean()['y']
 0.3648
 ```
-Taking a look at the true average treatment effect, the average difference between `(y1 - y0).mean()`, we can read off that it's just the average of `arg`. `arg` is the sum of three normal variables, so has mean zero. Thus, there is no average treatment effect! Our naive estimate of `0.36` is far from the true value. We can calculate the true value directly:
+Taking a look at the true average treatment effect, the average difference between `(y1 - y0).mean()`, we can read off that it's just the average of `z1 + z2 + z3`. `z1 + z2 + z3` is the sum of three normal variables, so has mean zero. Thus, there is no average treatment effect! Our naive estimate of `0.36` is far from the true value. We can calculate the true value directly:
  
 ```python
 > (y1 - y0).mean()
