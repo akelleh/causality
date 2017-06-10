@@ -17,9 +17,33 @@ Most of the classic models you'd like to use are probably in this portion of the
 
 #### PropensityScoreMatching
 
-Propensity score matching tries to attack the problem of dissimilar test and control groups directly. You have the option of making the test group more similar to the control group, or vice versa. When we're talking about similarity, we mean similar by some metric. In the case of propensity score matching, that metric is the "propensity score". The propensity score is the probability a unit is assigned to the treatment given a set of covariates, $$P(D|Z_1, Z_2, ..., Z_n)$$.
+Propensity score matching tries to attack the problem of dissimilar test and control groups directly. You have the option of making the test group more similar to the control group, or vice versa. When we're talking about similarity, we mean similar by some metric. In the case of propensity score matching, that metric is the "propensity score". The propensity score is the probability a unit is assigned to the treatment given a set of covariates, $$P(D|Z_1, Z_2, ..., Z_n)$$. We can use a specific example to make all of this concrete. We'll run through the example for a high-level explanation, and then go in-depth into the assumptions and caveats.
 
-If the variables $$Z_i$$ account for why the unit is assigned to the test or control group, then we can take all the control units that look like they should be test units, and throw away the rest! As you might guess, this can make inefficient use of our data, but it's a good method to use if you have the data for it.
+##### High-level Example
+
+Suppose we're in the publishing business, and we're interested in the effect of "the length of an article title" on "the click-through rate of the article" (the proportion of times when a link to an article is seen and also clicked). To make things really simple, we'll just consider "long" titles and "short" titles. We're interested in how much better a long title clicks than a short title.
+
+There's a big problem: we can't force our writers to make their titles a certain length. Even worse, we think that our better writers tend to write shorter titles. Since they're better writers, their titles also tend to click better _independently from the effects of the length of the title on click-through rates_. This results in a (negative) correlation between title length and click-through rates, even if there is no causal effect! They are both caused by the author.
+
+In order to handle this, we can try to control for the effect of the author. There's a direct way to do this, by looking at the effect of title length on click-through rates for each author, and then averaging over authors. That way, each effect measurement controls for author, and you average the effect measurements together to get the total result. This easy to do when we only care about one variable, but usually we want to control for a lot more. Consider that the vertical (e.g. news, entertainment, etc.) the author writes for might also confound the effect (e.g. news headlines might be longer, but also more interesting and so clickier). The more variables there are to control for, the harder it is to find data for every possible combination of values. This is where propensity score matching really shines: if you're willing to assume a model for the propensity scores, then you can do this kind of controlling. In this package, we build in a logistic regression model. In general, you can use any model you like.
+
+In order to use this package, the simplest implementation assumes you have all of the relevant data in a pandas.DataFrame object, `X`. We'll have author names as strings in `X['author']`, title length as `0` for short, and `1` for long in `X['title_length']`, vertical in `X['vertical']`, and the outcome we're interested in, the click-through rate (CTR) in `X['ctr']`.
+
+Estimating the effect is as simple as 
+```python
+from causality.estimation.parametric import PropensityScoreMatching
+
+matcher = PropensityScoreMatching()
+matcher.estimate_ATE(X, 'title_length', 'ctr', {'author': 'u', 'vertical': 'u'})
+```
+
+The first argument contains your data, the second is the name of the dataframe column with the "cause" (must be binary for PSM, but there's a little flexibility on how you encode it. Check the docstring for details.), the 3rd argument is the name of the outcome. The 4th argument is a dictionary that tells the algorithm what you'd like to control for. It needs to know whether your data is discrete or continuous, so the values of the dictionary are `'c'` for continuous, `'o'` for ordered and discrete, and `'u'` for unordered and discrete. 
+
+Now, we'll do a more in-depth example which will involve examining whether a few assumptions we make with PSM are satisfied.
+
+##### Detailed Example
+
+Propensity score matching does a lot of work internally. It attempts to find treatment and control units who are similar to each other, so any differences in them can be attributed to the difference treatment assignments.
 
 There are a few diagnostics that help you figure out whether you've done a good job matching. Once you've done the matching, the distribution of the Z's between the test and control should end up pretty similar. The easiest trick is probably to examine the average value of each Z between the test and control group, and make sure most of the difference is gone. If so, your matching is probably okay. If not, you should play with the matching algorithm's parameters and try to do a better job.
 
