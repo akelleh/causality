@@ -123,7 +123,8 @@ class PropensityScoreMatching(object):
         X.loc[:,'propensity score'] = model.predict(df[regression_confounders])
         return X
 
-    def match(self, X, assignment='assignment', score='propensity score', n_neighbors=2, treated_value=1, control_value=0):
+    def match(self, X, assignment='assignment', score='propensity score', n_neighbors=2, treated_value=1,
+              control_value=0, match_to='treated'):
         """
         For each unit in the test group, match n_neighbors units in the control group with the closest propensity scores
         (matching with replacement).
@@ -139,6 +140,16 @@ class PropensityScoreMatching(object):
         X = X.reset_index()
         treated = X[X[assignment] == treated_value]
         control = X[X[assignment] == control_value]
+        if match_to == 'treated':
+            return self.get_control_matches(treated, control, score=score, n_neighbors=n_neighbors)
+        elif match_to == 'control':
+            return self.get_treated_matches(treated, control, score=score, n_neighbors=n_neighbors)
+        else:
+            treated, matched_control = self.get_control_matches(treated, control, score=score, n_neighbors=n_neighbors)
+            matched_treated, control = self.get_treated_matches(treated, control, score=score, n_neighbors=n_neighbors)
+            return treated.append(matched_treated), control.append(matched_control)
+
+    def get_control_matches(self, treated, control, score='propensity score', n_neighbors=2):
         neighbor_search = NearestNeighbors(metric='euclidean', n_neighbors=n_neighbors)
         neighbor_search.fit(control[[score]].values)
         treated.loc[:, 'matches'] = treated[score].apply(lambda x: self.get_matches(x, control, neighbor_search, score, n_neighbors))
@@ -151,7 +162,26 @@ class PropensityScoreMatching(object):
         matched_control = join_data.join(control, on='control_index')
         del treated['matches']
         del matched_control['control_index']
+        treated['weight'] = 1.
+        matched_control['weight'] = 1. / float(n_neighbors)
         return treated, matched_control
+
+    def get_treated_matches(self, treated, control, score='propensity score', n_neighbors=2):
+        neighbor_search = NearestNeighbors(metric='euclidean', n_neighbors=n_neighbors)
+        neighbor_search.fit(treated[[score]].values)
+        control.loc[:, 'matches'] = control[score].apply(lambda x: self.get_matches(x, treated, neighbor_search, score, n_neighbors))
+        join_data = []
+        for control_index, row in control.iterrows():
+            matches = row['matches'].flatten()
+            for match in matches:
+                join_data.append({'control_index': control_index, 'treated_index': match})
+        join_data = pd.DataFrame(join_data)
+        matched_treated = join_data.join(treated, on='treated_index')
+        del control['matches']
+        del matched_treated['control_index']
+        matched_treated['weight'] = 1. / float(n_neighbors)
+        control['weight'] = 1.
+        return matched_treated, control
 
 
     def get_matches(self, score, control, knn, score_name, n_neighbors):
