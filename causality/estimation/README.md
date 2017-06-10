@@ -138,6 +138,7 @@ matcher.check_support(X, 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
 ```
 
 And you'll find the following plots
+
 ![z1 support](./img/z1_support.png)
 ![z2 support](./img/z2_support.png)
 ![z3 support](./img/z3_support.png)
