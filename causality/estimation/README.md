@@ -39,7 +39,9 @@ matcher.estimate_ATE(X, 'title_length', 'ctr', {'author': 'u', 'vertical': 'u'})
 
 The first argument contains your data, the second is the name of the dataframe column with the "cause" (must be binary for PSM, but there's a little flexibility on how you encode it. Check the docstring for details.), the 3rd argument is the name of the outcome. The 4th argument is a dictionary that tells the algorithm what you'd like to control for. It needs to know whether your data is discrete or continuous, so the values of the dictionary are `'c'` for continuous, `'o'` for ordered and discrete, and `'u'` for unordered and discrete. 
 
-Now, we'll do a more in-depth example which will involve examining whether a few assumptions we make with PSM are satisfied.
+The name `ATE` stands for "average treatment effect". It means the average benefit of the `1`  state over the `0` state. 
+
+Now, we'll do a more in-depth example which will involve examining whether a few assumptions we make with PSM are satisfied, and we'll see how to get confidence intervals.
 
 ##### Detailed Example
 
