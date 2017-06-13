@@ -12,14 +12,14 @@ class TestDID(TestAPI):
         pre_experiment = assignment + np.random.normal(-1, size=SIZE)
         start = assignment + np.random.normal(1, size=SIZE)
         end = start + np.random.normal(2.*assignment) + np.random.normal(2, size=SIZE)
-        self.X_pre = pd.DataFrame({'Start' : pre_experiment, 'End' : start, 'Assignment' : assignment})
-        self.X = pd.DataFrame({'Start' : start, 'End' : end, 'Assignment' : assignment})
+        self.X_pre = pd.DataFrame({'Start' : pre_experiment, 'End' : start, 'assignment' : assignment})
+        self.X = pd.DataFrame({'Start' : start, 'End' : end, 'assignment' : assignment})
         self.did = DifferenceInDifferences()
 
     def test_assumption_tester(self):
         assert self.did.test_parallel_trend(self.X_pre)
 
-        self.X_pre['End'] += self.X_pre['Assignment']
+        self.X_pre['End'] += self.X_pre['assignment']
         assert not self.did.test_parallel_trend(self.X_pre)
 
     def test_did_estimator(self):
@@ -37,7 +37,7 @@ class TestPropScore(TestAPI):
     def test_match(self):
         matcher = PropensityScoreMatching()
         X = pd.DataFrame({'assignment': [1, 0, 0, 0, 0, 0],
-                          'propensity score': [3, 1, 2, 3, 4, 5]})
+                          'propensity score': [3, 1, 2, 3, 5, 4]})
 
         test, control = matcher.match(X, n_neighbors=3)
         assert set(control['propensity score'].values) == set([2, 3, 4])
@@ -77,5 +77,4 @@ class TestPropScore(TestAPI):
 
         matcher = PropensityScoreMatching()
         ATE = matcher.estimate_ATE(X, 'd', 'y', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
-
         assert 0.9 <= ATE <= 1.1
