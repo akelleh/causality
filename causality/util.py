@@ -1,6 +1,6 @@
 import pandas as pd
 
-def bootstrap_statistic(df, function, bootstrap_samples=1000, lower_confidence=0.025, upper_confidence=0.975, values=False):
+def bootstrap_statistic(df, function,  bootstrap_samples=1000, lower_confidence=0.025, upper_confidence=0.975, values=False):
     """ This gives bootstrap confidence intervals on the population value
         of function given the sample represented by iterable."""
     statistics = []
