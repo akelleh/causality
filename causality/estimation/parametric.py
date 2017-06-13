@@ -23,42 +23,42 @@ class DifferenceInDifferences(object):
         else:
             self.model = OLS
 
-    def average_treatment_effect(self, X, start='Start', end='End', assignment='Assignment'):
-        test = X[X['Assignment']==1][['Start','End']]
-        control = X[X['Assignment']==0][['Start','End']]
+    def average_treatment_effect(self, X, start='Start', end='End', assignment='assignment'):
+        test = X[X[assignment]==1][[start ,end]]
+        control = X[X[assignment]==0][[start,end]]
         del X
 
-        test_initial = test['Start']
-        test_final = test['End']
-        control_initial = control['Start']
-        control_final = control['End']
+        test_initial = test[start]
+        test_final = test[end]
+        control_initial = control[start]
+        control_final = control[end]
         del test, control
 
         df = pd.DataFrame({'y' : test_initial, 
-                   'assignment' : [1. for i in test_initial], 
+                   assignment : [1. for i in test_initial],
                    't' :[0. for i in test_initial] })
         df = df.append(pd.DataFrame({'y' : test_final, 
-                                     'assignment' : [1. for i in test_final], 
+                                     assignment : [1. for i in test_final],
                                      't' :[1. for i in test_final] }))
 
         df = df.append(pd.DataFrame({'y' : control_initial, 
-                                     'assignment' : [0. for i in control_initial], 
+                                     assignment : [0. for i in control_initial],
                                      't' :[0. for i in control_initial] }))
 
         df = df.append(pd.DataFrame({'y' : control_final, 
-                                     'assignment' : [0. for i in control_final], 
+                                     assignment : [0. for i in control_final],
                                      't' :[1. for i in control_final] }))
         del test_initial, test_final, control_initial, control_final
-        df['did'] = df['t'] * df['assignment'] 
+        df['did'] = df['t'] * df[assignment]
         df['intercept'] = 1.
 
-        model = self.model(df['y'], df[['t', 'assignment','did', 'intercept']])
+        model = self.model(df['y'], df[['t', assignment,'did', 'intercept']])
         result = model.fit()
         conf_int = result.conf_int().ix['did']
         expected = result.params['did']
         return conf_int[0], expected, conf_int[1]
         
-    def test_parallel_trend(self, X, start='Start', end='End', assignment='Assignment'):
+    def test_parallel_trend(self, X, start='Start', end='End', assignment='assignment'):
         """
         This will find the average treatment effect on
         a dataset before the experiment is run, to make
@@ -251,20 +251,10 @@ class PropensityScoreMatching(object):
         :param n_neighbors: An integer for the number of neighbors to use with k-nearest-neighbor matching
         :return: a float representing the treatment effect on the treated
         """
-        X = self.score(X, confounder_types, assignment)
-        treatments, matched_control = self.match(X, assignment=assignment, score='propensity score', n_neighbors=n_neighbors)
+        df = self.score(X, confounder_types, assignment).copy()
+        treatments, matched_control = self.match(df, assignment=assignment, score='propensity score', n_neighbors=n_neighbors)
         df = treatments.append(matched_control)
-        def estimate_ATT(df):
-            treated = df[df[assignment] == 1]
-            control = df[df[assignment] == 0]
-            treatments = self.estimate_treatments(treated, control, outcome)
-            y_hat_treated = treatments[outcome].mean()
-            y_hat_control = treatments['control outcome'].mean()
-            return y_hat_treated - y_hat_control
-        if bootstrap:
-            return bootstrap_statistic(df, estimate_ATT)
-        else:
-            return estimate_ATT(df)
+        return self.get_weighted_effect_estimate(assignment, df, outcome, bootstrap=bootstrap)#estimate_ATT(df)
 
     def estimate_ATC(self, X, assignment, outcome, confounder_types, n_neighbors=5, bootstrap=False):
         """
@@ -279,15 +269,11 @@ class PropensityScoreMatching(object):
         :param n_neighbors: An integer for the number of neighbors to use with k-nearest-neighbor matching
         :return: a float representing the treatment effect on the control
         """
-        df = X.copy()
-        df.loc[:, assignment] = (df[assignment] + 1) % 2
-        if bootstrap:
-            lower, expec, upper = self.estimate_ATT(df, assignment, outcome, confounder_types,
-                                                    n_neighbors=n_neighbors, bootstrap=bootstrap)
-            return -lower, -expec, -upper
-
-        else:
-            return -self.estimate_ATT(df, assignment, outcome, confounder_types, n_neighbors=n_neighbors, bootstrap=bootstrap)
+        df = self.score(X, confounder_types, assignment).copy()
+        treatments, matched_control = self.match(df, assignment=assignment, score='propensity score',
+                                                 n_neighbors=n_neighbors, match_to='control')
+        df = treatments.append(matched_control)
+        return self.get_weighted_effect_estimate(assignment, df, outcome, bootstrap=bootstrap)
 
     def estimate_ATE(self, X, assignment, outcome, confounder_types, score=None, n_neighbors=5, bootstrap=False):
         """
