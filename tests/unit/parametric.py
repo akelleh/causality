@@ -77,5 +77,4 @@ class TestPropScore(TestAPI):
 
         matcher = PropensityScoreMatching()
         ATE = matcher.estimate_ATE(X, 'd', 'y', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
-        print(ATE)
         assert 0.9 <= ATE <= 1.1
