@@ -9,8 +9,12 @@ Assuming you have pip installed, just run
 pip install causality 
 ```
 
+## Measuring Causal Effects
 
-## Causal Inference
+the [`causality.estimation`](https://github.com/akelleh/causality/tree/master/causality/estimation) module contains tools for estimating causal effects from observational and experimental data. Most tools are parametric, like `PropensityScoreMatching`, and can be found in `causality.estimation.parametric`. Other models are non-parametric, and rely on directly estimating densities and using the g-estimation approach.
+
+
+## DAG Inference
 
 The `causality.inference` module will contain various algorithms for inferring causal DAGs.  Currently (2016/01/23), the only algorithm implemented is the IC\* algorithm from Pearl (2000).  It has decent test coverage, but feel free to write some more!  I've left some stubs in `tests/unit/test\_IC.py`.
 
