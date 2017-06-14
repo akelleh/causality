@@ -415,16 +415,18 @@ class MDMatching(object):
         :param n_neighbors: the number of control units to match to each treated unit
         :return: two dataframes. The first contains the original treated units, the second is the matched control units.
         """
+        treated = treated.reset_index(drop=True)
+        control = control.reset_index(drop=True)
         X = treated.append(control)
         confounders = confounder_types.keys()
         neighbor_search = NearestNeighbors(metric='mahalanobis',
                                            metric_params={'V': X[confounders].cov()},
                                            n_neighbors=n_neighbors)
         neighbor_search.fit(control[confounders].values)
-        treated.loc[:, 'matches'] = treated[confounders].apply(lambda x: self.get_matches(x.reshape(1,-1), neighbor_search, n_neighbors=n_neighbors), axis=1)
+        treated.loc[:, 'matches'] = treated[confounders].apply(lambda x: self.get_matches(x.values.reshape(1,-1), neighbor_search, n_neighbors=n_neighbors), axis=1)
         join_data = []
         for treatment_index, row in treated.iterrows():
-            matches = row['matches'].flatten()
+            matches = row['matches']#.flatten()
             for match in matches:
                 join_data.append({'treatment_index': treatment_index, 'control_index': match})
         join_data = pd.DataFrame(join_data)
@@ -433,7 +435,7 @@ class MDMatching(object):
         del matched_control['control_index']
         treated.loc[:, 'weight'] = 1.
         matched_control.loc[:, 'weight'] = 1. / float(n_neighbors)
-        return treated, matched_control
+        return treated[cols], matched_control[cols]
 
     def get_treated_matches(self, treated, control, confounder_types={}, n_neighbors=2):
         """
@@ -463,7 +465,7 @@ class MDMatching(object):
         """
         max_distance = max(knn.kneighbors(confounders)[0].flatten())
         neighbors = knn.radius_neighbors(confounders, radius=max_distance*1.001, return_distance=False)[0]
-        return np.random.choice(neighbors, size=n_neighbors, replace=False)
+        return list(np.random.choice(neighbors, size=n_neighbors, replace=False))
 
 
     def estimate_treatments(self, treatments, matched_control, outcome):
@@ -497,8 +499,7 @@ class MDMatching(object):
         :param n_neighbors: An integer for the number of neighbors to use with k-nearest-neighbor matching
         :return: a float representing the treatment effect on the treated
         """
-        df = self.score(X, confounder_types, assignment).copy()
-        treatments, matched_control = self.match(df, assignment=assignment, score='propensity score', n_neighbors=n_neighbors)
+        treatments, matched_control = self.match(df, confounder_types=confounder_types, assignment=assignment, n_neighbors=n_neighbors)
         df = treatments.append(matched_control)
         return self.get_weighted_effect_estimate(assignment, df, outcome, bootstrap=bootstrap)#estimate_ATT(df)
 
@@ -515,13 +516,11 @@ class MDMatching(object):
         :param n_neighbors: An integer for the number of neighbors to use with k-nearest-neighbor matching
         :return: a float representing the treatment effect on the control
         """
-        df = self.score(X, confounder_types, assignment).copy()
-        treatments, matched_control = self.match(df, assignment=assignment, score='propensity score',
-                                                 n_neighbors=n_neighbors, match_to='control')
+        treatments, matched_control = self.match(df, assignment=assignment, confounder_types=confounder_types, n_neighbors=n_neighbors, match_to='control')
         df = treatments.append(matched_control)
         return self.get_weighted_effect_estimate(assignment, df, outcome, bootstrap=bootstrap)
 
-    def estimate_ATE(self, X, assignment, outcome, confounder_types, score=None, n_neighbors=5, bootstrap=False):
+    def estimate_ATE(self, X, assignment, outcome, confounder_types, n_neighbors=5, bootstrap=False):
         """
         Find the Average Treatment Effect(ATE) on the population. An ATE can be estimated as a weighted average of the
         ATT and ATC, weighted by the proportion of the population who is treated or not, resp. Assumes a 1 for
@@ -536,10 +535,7 @@ class MDMatching(object):
         :param n_neighbors: An integer for the number of neighbors to use with k-nearest-neighbor matching
         :return: a float representing the average treatment effect
         """
-        if not score:
-            X = self.score(X, confounder_types, assignment)
-            score = 'propensity score'
-        treated, control = self.match(X, assignment=assignment, score=score, n_neighbors=n_neighbors, treated_value=1,
+        treated, control = self.match(X, assignment=assignment, confounder_types=confounder_types, n_neighbors=n_neighbors, treated_value=1,
                                       control_value=0, match_to='all')
         return self.get_weighted_effect_estimate(assignment, treated.append(control), outcome, bootstrap=bootstrap)
 
