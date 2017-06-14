@@ -418,12 +418,13 @@ class MDMatching(object):
         treated = treated.reset_index(drop=True)
         control = control.reset_index(drop=True)
         X = treated.append(control)
-        confounders = confounder_types.keys()
+        confounders = [xi for xi in confounder_types.keys()]
+        print(confounders)
         neighbor_search = NearestNeighbors(metric='mahalanobis',
                                            metric_params={'V': X[confounders].cov()},
                                            n_neighbors=n_neighbors)
         neighbor_search.fit(control[confounders].values)
-        treated.loc[:, 'matches'] = treated[confounders].apply(lambda x: self.get_matches(x.values.reshape(1,-1), neighbor_search, n_neighbors=n_neighbors), axis=1)
+        treated.loc[:, 'matches'] = treated[confounders].apply(lambda x: self.get_matches(x.values.reshape(1, -1), neighbor_search, n_neighbors=n_neighbors), axis=1)
         join_data = []
         for treatment_index, row in treated.iterrows():
             matches = row['matches']#.flatten()
@@ -435,7 +436,7 @@ class MDMatching(object):
         del matched_control['control_index']
         treated.loc[:, 'weight'] = 1.
         matched_control.loc[:, 'weight'] = 1. / float(n_neighbors)
-        return treated[cols], matched_control[cols]
+        return treated, matched_control
 
     def get_treated_matches(self, treated, control, confounder_types={}, n_neighbors=2):
         """

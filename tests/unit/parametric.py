@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from causality.estimation.parametric import DifferenceInDifferences, PropensityScoreMatching
+from causality.estimation.parametric import DifferenceInDifferences, PropensityScoreMatching, MDMatching
 from tests.unit import TestAPI 
 
 
@@ -61,7 +61,7 @@ class TestPropScore(TestAPI):
         assert 2.0 <= matcher.propensity_score_model.params['intercept'] <= 4.0
 
     def test_at_estimators(self):
-        N = 1000  # how many data points
+        N = 3000  # how many data points
 
         z1 = 0.5 * np.random.normal(size=N)  # a few confounding variables
         z2 = 0.5 * np.random.normal(size=N)
@@ -76,5 +76,33 @@ class TestPropScore(TestAPI):
         X = pd.DataFrame({'d': d, 'z1': z1, 'z2': z2, 'z3': z3, 'y': y, 'p': p})
 
         matcher = PropensityScoreMatching()
+        ATE = matcher.estimate_ATE(X, 'd', 'y', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
+        assert 0.9 <= ATE <= 1.1
+
+class TestMDM(TestAPI):
+    def test_match(self):
+        matcher = MDMatching()
+        X = pd.DataFrame({'assignment': [1, 0, 0, 0, 0, 0],
+                          'z': [3, 1, 2, 3, 5, 4]})
+
+        test, control = matcher.match(X, confounder_types={'z': 'c'}, n_neighbors=3)
+        assert set(control['z'].values) == set([2, 3, 4])
+
+    def test_at_estimators(self):
+        N = 3000  # how many data points
+
+        z1 = 0.5 * np.random.normal(size=N)  # a few confounding variables
+        z2 = 0.5 * np.random.normal(size=N)
+        z3 = 0.5 * np.random.normal(size=N)
+
+        arg = (z1 + z2 + z3 + np.random.normal(size=N))
+        p = np.exp(arg) / (1. + np.exp(arg))  # propensity to receive treatment, P(d|z), taking on a logistic form
+        d = np.random.binomial(1, p)
+
+        y = (np.random.normal(size=N) + (z1 + z2 + z3 + 1.) * d)  # effect of d is confounded by z. True ATE is 1.
+
+        X = pd.DataFrame({'d': d, 'z1': z1, 'z2': z2, 'z3': z3, 'y': y, 'p': p})
+
+        matcher = MDMatching()
         ATE = matcher.estimate_ATE(X, 'd', 'y', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
         assert 0.9 <= ATE <= 1.1
