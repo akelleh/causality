@@ -44,8 +44,8 @@ X = pd.DataFrame({'x1' : x1, 'x2' : x2, 'x3' : x3, 'x4' : x4, 'x5' : x5})
 variable_types = {'x1' : 'c', 'x2' : 'c', 'x3' : 'c', 'x4' : 'c', 'x5' : 'c'}
 
 # run the search
-ic_algorithm = IC(RobustRegressionTest, X, variable_types)
-graph = ic_algorithm.search()
+ic_algorithm = IC(RobustRegressionTest)
+graph = ic_algorithm.search(X, variable_types)
 ```
 
 Now, we have the inferred graph stored in `graph`.  In this graph, each variable is a node (named from the DataFrame columns), and each edge represents statistical dependence between the nodes that can't be eliminated by conditioning on the variables specified for the search.  If an edge can be oriented with the data available, the arrowhead is indicated in `'arrows'`.  If the edge also satisfies the local criterion for genuine causation, then that directed edge will have `marked=True`.  If we print the edges from the result of our search, we can see which edges are oriented, and which satisfy the local criterion for genuine causation:
