@@ -119,10 +119,10 @@ class IC():
         the nodes.  If not, keep the edge.
         """
         self.separating_sets = {}
-        for N in range(len(self._g.node)+1):    
-            for (x, y) in self._g.edges():
-                x_neighbors = self._g.neighbors(x)
-                y_neighbors = self._g.neighbors(y)
+        for N in range(len(self._g.node)+1):
+            for (x, y) in list(self._g.edges()):
+                x_neighbors = list(self._g.neighbors(x))
+                y_neighbors = list(self._g.neighbors(y))
                 z_candidates = list(set(x_neighbors + y_neighbors) - set([x,y]))
                 for z in itertools.combinations(z_candidates, N):
                     test = self.independence_test([y], [x], list(z), 
@@ -130,7 +130,6 @@ class IC():
                     if test.independent():
                         self._g.remove_edge(x,y)
                         self.separating_sets[(x,y)] = z
-                        break
-                        
+                        break                        
         
     
