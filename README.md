@@ -95,10 +95,14 @@ Which is close to the correct value of `0.282` for a gaussian with mean 0. and v
 
 ## Other Notes
 
-This repository is in its early phases.  The run-time for the tests is long.  Many optimizations will be made in the near future, including
+This repository is in its early phases.  The run-time for the tests is long.  Aside from code improvements, we'd like to make some workflow improvements, includin accepting more user input for graph inference, and supporting querying the graph for causal effects.
+
+Here are a few technical improvements we'd like to make. 
 * Implement fast mutual information calculation, O( N log N )
 * Speed up integrating out variables for controlling
 * Take a user-supplied graph, and find the set of admissable sets
 * Front-door criterion method for determining causal effects
+
+We will also implement some standard estimation methods for causal effects, and improve the readme 
 
 Pearl, Judea. _Causality_.  Cambridge University Press, (2000).
