@@ -165,10 +165,12 @@ class MixedChiSquaredTest(object):
         @pymc.stochastic(name='joint_sample')
         def ci_joint(value=self.mcmc_initialization):
             def logp(value):
-                xi = [value[i] for i in range(len(x))]
-                yi = [value[i+len(x)] for i in range(len(y))]
-                zi = [value[i+len(x)+len(y)] for i in range(len(z))] 
-                if len(z) == 0:
+                x_length, y_length, z_length = len(self.x), len(self.y), len(self.z)
+                
+                xi = [value[i] for i in range(x_length)]
+                yi = [value[i + x_length] for i in range(y_length)]
+                zi = [value[i + x_length + y_length] for i in range(z_length)] 
+                if z_length == 0:
                     log_px_given_z = np.log(self.densities[0].pdf(data_predict=xi))
                     log_py_given_z = np.log(self.densities[1].pdf(data_predict=yi))
                     log_pz = 0.
@@ -184,7 +186,7 @@ class MixedChiSquaredTest(object):
         samples = self.N
         iterations = samples * thin + burn
         mcmc.sample(iter=iterations, burn=burn, thin=thin)
-        return pd.DataFrame(mcmc.trace('joint_sample')[:], columns=x+y+z)
+        return pd.DataFrame(mcmc.trace('joint_sample')[:], columns=self.x + self.y + self.z)
 
 
 class MutualInformationTest():

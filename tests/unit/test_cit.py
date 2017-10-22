@@ -5,7 +5,10 @@ import numpy.random
 import pandas as pd
 import networkx as nx
 
-from causality.inference.independence_tests import RobustRegressionTest, ChiSquaredTest, MutualInformationTest
+from causality.inference.independence_tests import (RobustRegressionTest,
+                                                    ChiSquaredTest,
+                                                    MutualInformationTest,
+                                                    MixedChiSquaredTest)
 
 TEST_SET_SIZE = 2000
 TRIALS = 2
@@ -42,7 +45,6 @@ class TestChi2(TestAPI):
         z = []
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(test.independent())
-
         
         x = ['a']
         y = ['c']
@@ -50,13 +52,11 @@ class TestChi2(TestAPI):
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(test.independent())
 
-
         x = ['a','b']
         y = ['c']
         z = ['d']
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(test.independent())
-
 
         x = ['a']
         y = ['b','c']
@@ -64,10 +64,43 @@ class TestChi2(TestAPI):
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(not test.independent())
 
+class TestMixedChi2(TestAPI):
+    def setUp(self):
+        TEST_SET_SIZE = 700
+        a = numpy.random.randn(TEST_SET_SIZE) * 3
+        b = numpy.random.randn(TEST_SET_SIZE) * 0.2 + a * 5        
+        c = numpy.random.randn(TEST_SET_SIZE) * 0.5 + a
+        d = numpy.random.randn(TEST_SET_SIZE)
+        self.X = pd.DataFrame({'a' : a,
+                               'b' : b,
+                               'c' : c, 
+                               'd' : d })        
+        self.variable_types = {'a': 'c',
+                               'b': 'c',
+                               'c': 'c',
+                               'd': 'c'}
+        self.alpha = 0.05
 
+    def test_mixed_chi2(self):        
+        x = ['b']
+        y = ['c']
+        z = ['a']
+        test = MixedChiSquaredTest(y, x, z,
+                                   self.X,
+                                   self.alpha,
+                                   self.variable_types)
+        assert(test.independent())
+
+        x = ['b']
+        y = ['c']
+        z = ['d']
+        test = MixedChiSquaredTest(y, x, z,
+                                   self.X,
+                                   self.alpha,
+                                   self.variable_types)
+        assert(not test.independent())
 
 class TestMutualInformation(TestAPI):
-
     def setUp(self):
         size = 1000
         x1 = numpy.random.choice(range(5), size=size)
