@@ -34,18 +34,18 @@ class DifferenceInDifferences(object):
         control_final = control[end]
         del test, control
 
-        df = pd.DataFrame({'y' : test_initial, 
+        df = pd.DataFrame({'y' : test_initial,
                    assignment : [1. for i in test_initial],
                    't' :[0. for i in test_initial] })
-        df = df.append(pd.DataFrame({'y' : test_final, 
+        df = df.append(pd.DataFrame({'y' : test_final,
                                      assignment : [1. for i in test_final],
                                      't' :[1. for i in test_final] }))
 
-        df = df.append(pd.DataFrame({'y' : control_initial, 
+        df = df.append(pd.DataFrame({'y' : control_initial,
                                      assignment : [0. for i in control_initial],
                                      't' :[0. for i in control_initial] }))
 
-        df = df.append(pd.DataFrame({'y' : control_final, 
+        df = df.append(pd.DataFrame({'y' : control_final,
                                      assignment : [0. for i in control_final],
                                      't' :[1. for i in control_final] }))
         del test_initial, test_final, control_initial, control_final
@@ -57,7 +57,7 @@ class DifferenceInDifferences(object):
         conf_int = result.conf_int().ix['did']
         expected = result.params['did']
         return conf_int[0], expected, conf_int[1]
-        
+
     def test_parallel_trend(self, X, start='Start', end='End', assignment='assignment'):
         """
         This will find the average treatment effect on
@@ -66,7 +66,7 @@ class DifferenceInDifferences(object):
         that the average treatment effect between the test
         and control groups when neither is treated is 0.
 
-        The format for this dataset is the same as that 
+        The format for this dataset is the same as that
         for the real estimation task, except that the start
         time is some time before the experiment is run, and
         the end time is the starting point for the experiment.
@@ -76,14 +76,12 @@ class DifferenceInDifferences(object):
             return True
         return False
 
-
-class PropensityScoreMatching(object):
+class PropensityScoringModel(object):
     def __init__(self):
         # change the model if there are multiple matches per treated!
         self.propensity_score_model = None
 
-
-    def score(self, X, confounder_types, assignment='assignment', store_model_fit=False, intercept=True):
+    def score(self, X, confounder_types, assignment='assignment', store_model_fit=False, intercept=True, propensity_score_name='propensity score'):
         """
         Fit a propensity score model using the data in X and the confounders listed in confounder_types. This adds
         the propensity scores to the dataframe, and returns the new dataframe.
@@ -120,8 +118,13 @@ class PropensityScoreMatching(object):
         model = logit.fit()
         if store_model_fit:
             self.propensity_score_model = model
-        X.loc[:, 'propensity score'] = model.predict(df[regression_confounders])
+        X.loc[:, propensity_score_name] = model.predict(df[regression_confounders])
         return X
+
+class PropensityScoreMatching(PropensityScoringModel):
+    def __init__(self):
+        # change the model if there are multiple matches per treated!
+        self.propensity_score_model = None
 
     def match(self, X, assignment='assignment', score='propensity score', n_neighbors=2, treated_value=1,
               control_value=0, match_to='treated'):
@@ -376,3 +379,53 @@ class PropensityScoreMatching(object):
             pp.show()
 
 
+class InverseProbabilityWeightedOLS(PropensityScoringModel):
+    def __init__(self):
+        self.propensity_score_model = None
+        self.ols_model = None
+
+    def estimate_ATE(self, X, assignment, outcome, confounder_types, propensity_score_name='propensity score', additional_weight_column=None, weight_name='weights', ols_intercept='True'):
+        X = self.compute_ATE_weights(X,
+                                     assignment,
+                                     outcome,
+                                     confounder_types,
+                                     propensity_score_name=propensity_score_name,
+                                     additional_weight_column=additional_weight_column,
+                                     weight_name=weight_name)
+        self.fit_OLS(X, assignment, outcome, confounder_types, weight_name=weight_name, intercept=ols_intercept)
+
+    def compute_ATE_weights(self, X, assignment, outcome, confounder_types, propensity_score_name='propensity score', additional_weight_column=None, weight_name='weights'):
+        X = self.score(X,
+                       confounder_types,
+                       assignment=assignment,
+                       store_model_fit=True,
+                       intercept=True,
+                       propensity_score_name=propensity_score_name)
+        X.loc[:, weight_name] = (X[assignment] == 1) / X[propensity_score_name] + (X[assignment] == 0) / (1. - X[propensity_score_name])
+        if additional_weight_column:
+            X.loc[:, weight_name] = X[weight_name] * X[additional_weight_column]
+        return X
+
+    def fit_OLS(self, X, assignment, outcome, confounder_types, weight_name='weights', intercept='True'):
+        df = X[[assignment, outcome]].copy()
+        regression_confounders = []
+        for confounder, var_type in confounder_types.items():
+            if var_type == 'o' or var_type == 'u':
+                c_dummies = pd.get_dummies(X[[confounder]], prefix=confounder)
+                if len(c_dummies.columns) == 1:
+                    df = pd.concat([df, c_dummies[c_dummies.columns]], axis=1)
+                    regression_confounders.extend(c_dummies.columns)
+                else:
+                    df = pd.concat([df, c_dummies[c_dummies.columns[1:]]], axis=1)
+                    regression_confounders.extend(c_dummies.columns[1:])
+            else:
+                regression_confounders.append(confounder)
+                df.loc[:, confounder] = X[confounder].copy()
+                df.loc[:, confounder] = X[confounder].copy()
+        if intercept:
+            df.loc[:, 'intercept'] = 1.
+            regression_confounders.append('intercept')
+        model = OLS(df[outcome], df[[assignment] + regression_confounders], weights=X[weight_name])
+        result = model.fit()
+        self.ols_model = result
+        return result
