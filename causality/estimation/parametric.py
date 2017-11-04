@@ -1,5 +1,5 @@
 import pandas as pd
-from statsmodels.regression.linear_model import OLS
+from statsmodels.regression.linear_model import OLS, WLS
 from statsmodels.robust.robust_linear_model import RLM
 from statsmodels.discrete.discrete_model import Logit
 from sklearn.neighbors import NearestNeighbors
@@ -379,34 +379,61 @@ class PropensityScoreMatching(PropensityScoringModel):
             pp.show()
 
 
-class InverseProbabilityWeightedOLS(PropensityScoringModel):
+class InverseProbabilityWeightedLS(PropensityScoringModel):
     def __init__(self):
         self.propensity_score_model = None
-        self.ols_model = None
+        self.wls_model = None
 
-    def estimate_ATE(self, X, assignment, outcome, confounder_types, propensity_score_name='propensity score', additional_weight_column=None, weight_name='weights', ols_intercept='True'):
-        X = self.compute_ATE_weights(X,
-                                     assignment,
-                                     outcome,
-                                     confounder_types,
-                                     propensity_score_name=propensity_score_name,
-                                     additional_weight_column=additional_weight_column,
-                                     weight_name=weight_name)
-        self.fit_OLS(X, assignment, outcome, confounder_types, weight_name=weight_name, intercept=ols_intercept)
+    def estimate_effect(self, X, assignment, outcome, confounder_types, propensity_score_name='propensity score',
+                        additional_weight_column=None, weight_name='weights', ols_intercept='True', effect='ATE'):
+        X = self.compute_weights(X,
+                                 assignment,
+                                 outcome,
+                                 confounder_types,
+                                 propensity_score_name=propensity_score_name,
+                                 additional_weight_column=additional_weight_column,
+                                 weight_name=weight_name,
+                                 effect=effect)
+        self.fit_WLS(X, assignment, outcome, confounder_types, weight_name=weight_name, intercept=ols_intercept)
+        return self.wls_model.conf_int().transpose()[assignment][0], self.wls_model.params[assignment], self.wls_model.conf_int().transpose()[assignment][1]
 
-    def compute_ATE_weights(self, X, assignment, outcome, confounder_types, propensity_score_name='propensity score', additional_weight_column=None, weight_name='weights'):
+    def estimate_ATE(self, X, assignment, outcome, confounder_types, propensity_score_name='propensity score',
+                     additional_weight_column=None, weight_name='weights', ols_intercept='True'):
+        return self.estimate_effect(X, assignment, outcome, confounder_types, propensity_score_name='propensity score',
+                                    additional_weight_column=None, weight_name='weights', ols_intercept='True', effect='ATE')
+
+    def estimate_ATC(self, X, assignment, outcome, confounder_types, propensity_score_name='propensity score',
+                     additional_weight_column=None, weight_name='weights', ols_intercept='True'):
+        return self.estimate_effect(X, assignment, outcome, confounder_types, propensity_score_name='propensity score',
+                                    additional_weight_column=None, weight_name='weights', ols_intercept='True', effect='ATC')
+
+    def estimate_ATT(self, X, assignment, outcome, confounder_types, propensity_score_name='propensity score',
+                     additional_weight_column=None, weight_name='weights', ols_intercept='True'):
+        return self.estimate_effect(X, assignment, outcome, confounder_types, propensity_score_name='propensity score',
+                                    additional_weight_column=None, weight_name='weights', ols_intercept='True', effect='ATT')
+
+    def compute_weights(self, X, assignment, outcome, confounder_types, propensity_score_name='propensity score',
+                        additional_weight_column=None, weight_name='weights', effect='ATE'):
         X = self.score(X,
                        confounder_types,
                        assignment=assignment,
                        store_model_fit=True,
                        intercept=True,
                        propensity_score_name=propensity_score_name)
-        X.loc[:, weight_name] = (X[assignment] == 1) / X[propensity_score_name] + (X[assignment] == 0) / (1. - X[propensity_score_name])
+        if effect == 'ATE':
+            X.loc[:, weight_name] = (X[assignment] == 1) / X[propensity_score_name] + (X[assignment] == 0) / (1. - X[propensity_score_name])
+        elif effect == 'ATC':
+            X.loc[:, weight_name] = (X[assignment] == 1) * (1. - X[propensity_score_name]) / X[propensity_score_name] + (X[assignment] == 0) * 1.
+        elif effect == 'ATT':
+            X.loc[:, weight_name] = (X[assignment] == 1) * 1. + (X[assignment] == 0) * X[propensity_score_name] / (1. - X[propensity_score_name])
+        else:
+            raise Exception('Effect {} not recognized'.format(effect))
+
         if additional_weight_column:
             X.loc[:, weight_name] = X[weight_name] * X[additional_weight_column]
         return X
 
-    def fit_OLS(self, X, assignment, outcome, confounder_types, weight_name='weights', intercept='True'):
+    def fit_WLS(self, X, assignment, outcome, confounder_types, weight_name='weights', intercept='True'):
         df = X[[assignment, outcome]].copy()
         regression_confounders = []
         for confounder, var_type in confounder_types.items():
@@ -425,7 +452,7 @@ class InverseProbabilityWeightedOLS(PropensityScoringModel):
         if intercept:
             df.loc[:, 'intercept'] = 1.
             regression_confounders.append('intercept')
-        model = OLS(df[outcome], df[[assignment] + regression_confounders], weights=X[weight_name])
+        model = WLS(df[outcome], df[[assignment] + regression_confounders], weights=X[weight_name])
         result = model.fit()
-        self.ols_model = result
+        self.wls_model = result
         return result
