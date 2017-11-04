@@ -1,11 +1,13 @@
 import pandas as pd
 import numpy as np
 
-from causality.estimation.parametric import DifferenceInDifferences, PropensityScoreMatching
-from tests.unit import TestAPI 
+from causality.estimation.parametric import (DifferenceInDifferences,
+                                             PropensityScoreMatching,
+                                             InverseProbabilityWeightedLS)
+from tests.unit import TestAPI
 
 
-class TestDID(TestAPI): 
+class TestDID(TestAPI):
     def setUp(self):
         SIZE = 2000
         assignment = np.random.binomial(1,0.5, size=SIZE)
@@ -26,11 +28,11 @@ class TestDID(TestAPI):
         lower, exp, upper = self.did.average_treatment_effect(self.X)
         assert 1.8 <= exp <= 2.2
         assert lower <= exp <= upper
-        
+
         self.did = DifferenceInDifferences(robust=True)
         lower, exp, upper = self.did.average_treatment_effect(self.X)
         assert 1.8 <= exp <= 2.2
-        assert lower <= exp <= upper 
+        assert lower <= exp <= upper
 
 
 class TestPropScore(TestAPI):
@@ -78,3 +80,39 @@ class TestPropScore(TestAPI):
         matcher = PropensityScoreMatching()
         ATE = matcher.estimate_ATE(X, 'd', 'y', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
         assert 0.9 <= ATE <= 1.1
+
+class TestIPW(TestAPI):
+    def test_estimators(self):
+        N = 2000
+        z = np.random.normal(size=N)
+        d = np.random.binomial(1, p=1. / (1. + np.exp(-z)))
+        y0 = np.random.normal(size=N)
+        y1 = y0 + 2. * (1 + z)
+        y = (d == 1) * y1 + (d == 0) * y0
+        X = pd.DataFrame({'d': d, 'z': z, 'y': y, 'y0': y0, 'y1': y1})
+
+        assignment = 'd'
+        confounder_types = {'z': 'c'}
+        outcome = 'y'
+        ipw_model = InverseProbabilityWeightedLS()
+        atc_lower, atc_exp, atc_upper = ipw_model.estimate_ATC(X,
+                                                               assignment,
+                                                               outcome,
+                                                               confounder_types,
+                                                               propensity_score_name='propensity score')
+        assert 0.9 * atc_lower <= (X[X['d'] == 0]['y1'] - X[X['d'] == 0]['y0']).mean() <= 1.1 * atc_upper
+
+        att_lower, att_exp, att_upper = ipw_model.estimate_ATT(X,
+                                                               assignment,
+                                                               outcome,
+                                                               confounder_types,
+                                                               propensity_score_name='propensity score')
+        assert 0.9 * att_lower <= (X[X['d'] == 1]['y1'] - X[X['d'] == 1]['y0']).mean() <= 1.1 * att_upper
+
+
+        ate_lower, ate_exp, ate_upper = ipw_model.estimate_ATE(X,
+                                                               assignment,
+                                                               outcome,
+                                                               confounder_types,
+                                                               propensity_score_name='propensity score')
+        assert 0.9 * ate_lower <= (X['y1'] - X['y0']).mean() <= 1.1 * ate_upper
