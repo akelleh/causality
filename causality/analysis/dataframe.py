@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from statsmodels.nonparametric.kernel_regression import KernelReg
+from sklearn.ensemble import RandomForestRegressor
+
 
 class CausalDataFrame(pd.DataFrame):
     def zplot(self, *args, **kwargs):
@@ -8,9 +10,9 @@ class CausalDataFrame(pd.DataFrame):
             if kwargs.get('kind') == 'line':
                 treatment = kwargs.get('x')
                 outcome = kwargs.get('y')
-                variable_types = kwargs.get('z', {})
-                variable_types[treatment] = 'c'
+                variable_types = kwargs.get('z', {}).copy()
                 confounders = kwargs.get('z', {}).keys()
+                variable_types[treatment] = 'c'
 
                 if kwargs.get('model'):
                     model = kwargs.get('model')()
@@ -18,9 +20,15 @@ class CausalDataFrame(pd.DataFrame):
                     model.fit(self[[treatment] + confounders], self[outcome])
                 elif kwargs.get('fit_model'):
                     model = kwargs.get('fit_model')
-                else:
+                    del kwargs['fit_model']
+                elif kwargs.get('model_type', '') == 'kernel':
                     model = KernelModelWrapper()
+                    del kwargs['model_type']
                     model.fit(self[[treatment] + confounders], self[outcome], variable_types=variable_types)
+                else:
+                    model = RandomForestRegressor()
+                    model.fit(self[[treatment] + confounders], self[outcome])
+
 
                 xs = []
                 ys = []
