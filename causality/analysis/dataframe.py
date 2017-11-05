@@ -14,7 +14,10 @@ class CausalDataFrame(pd.DataFrame):
 
                 if kwargs.get('model'):
                     model = kwargs.get('model')()
+                    del kwargs['model']
                     model.fit(self[[treatment] + confounders], self[outcome])
+                elif kwargs.get('fit_model'):
+                    model = kwargs.get('fit_model')
                 else:
                     model = KernelModelWrapper()
                     model.fit(self[[treatment] + confounders], self[outcome], variable_types=variable_types)
