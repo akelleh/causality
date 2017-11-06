@@ -12,8 +12,13 @@ class CausalDataFrame(pd.DataFrame):
             if kwargs.get('kind') == 'bar':
                 return self._bar_zplot(*args, **kwargs)
             if kwargs.get('kind') == 'mean':
-                return self._mean_zplot(*args, **kwargs)
+                if kwargs.get('bootstrap_samples', 0):
+                    return self._bootstrapped_mean_zplot(*args, **kwargs)
+                else:
+                    return self._mean_zplot(*args, **kwargs)
         else:
+            if 'z' in kwargs:
+                del kwargs['z']
             return self.plot(*args, **kwargs)
 
     def _line_zplot(self, *args, **kwargs):
@@ -58,6 +63,47 @@ class CausalDataFrame(pd.DataFrame):
         df = pd.DataFrame({treatment: xs, outcome: ys})
         kwargs['kind'] = 'bar'
         return df.plot(*args, **kwargs)
+
+    def _bootstrapped_mean_zplot(self, *args, **kwargs):
+        treatment = kwargs.get('x')
+        outcome = kwargs.get('y')
+        def f(self, df, *args, **kwargs):
+            model, _ = self._get_model(*args, **kwargs)
+            treatment = kwargs.get('x')
+            confounders = kwargs.get('z', {}).keys()
+            df[treatment] = kwargs['xi']
+            df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
+            yi = df.mean()['$E[Y|X=x,Z]$']
+            return yi
+        _, arg_key = self._get_model(*args, **kwargs)
+        if arg_key:
+            del kwargs[arg_key]
+        unique_x = self[kwargs.get('x')].unique()
+        df = self.copy()
+        xs = []
+        lowers = []; uppers = []; expecteds = []
+        for xi in unique_x:
+            kwargs['xi'] = xi
+            yi = pd.Series(self._bootstrap_statistic(f, df, *args, **kwargs))
+            lower, upper = yi.quantile([0.025, 0.975])
+            exp = yi.mean()
+            lower = exp - lower
+            upper = upper - exp
+            lowers.append(lower); uppers.append(upper); expecteds.append(exp)
+            xs.append(xi)
+        del kwargs['xi'], kwargs['z'], kwargs['bootstrap_samples']
+
+        kwargs['kind'] = 'bar'
+        kwargs['yerr'] = zip(lowers, uppers)
+        df = pd.DataFrame({treatment: xs, outcome: expecteds})
+        return df.plot(*args, **kwargs)
+
+    def _bootstrap_statistic(self, f, df, *args, **kwargs):
+        samples = []
+        for _ in range(kwargs.get('bootstrap_samples')):
+            df_s = df.sample(n=len(df), replace=True)
+            samples.append(f(self, df_s, *args, **kwargs))
+        return samples
 
     def _get_model(self, *args, **kwargs):
         treatment = kwargs.get('x')
