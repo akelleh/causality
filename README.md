@@ -88,7 +88,7 @@ You can see the causal effect of intervention, `P(x3|do(x2))` using the measured
 ```python
 >>>from causality.estimation.nonparametric import CausalEffect
 >>>admissable_set = adjustment.admissable_set(g,['x2'], ['x3'])
->>>effect = CausalEffect(X, ['x2'], ['x3'], variable_types=variable_types, admissable_set=list(admissable_set))
+>>>effect = CausalEffect(X, ['x2'], ['x3'], variable_types=variable_types, admissable_set=admissable_set)
 >>>x = pd.DataFrame({'x2' : [0.], 'x3' : [0.]})
 >>>effect.pdf(x)
 0.268915603296
