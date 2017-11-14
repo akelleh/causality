@@ -67,27 +67,30 @@ The `causality.nonparametric` module contains a tool for non-parametrically esti
 
 I've recently added adjustment for direct causes, where you can estimate the causal effect of fixing a set of X variables on a set of Y variables by adjusting for the parents of X in your graph.  Using the dataset above, you can run this like
 ```python
-from causality.nonparametric.causal_reg import AdjustForDirectCauses
+from causality.estimation.adjustments import AdjustForDirectCauses
 from networkx import DiGraph
 
 g = DiGraph()
 
 g.add_nodes_from(['x1','x2','x3','x4', 'x5'])
 g.add_edges_from([('x1','x2'),('x1','x3'),('x2','x4'),('x3','x4')])
-adjustment = AdjustForDirectCauses(g, X, ['x2'],['x3'],variable_types=variable_types)
+adjustment = AdjustForDirectCauses()
 ```
 
 Then, you can see the set of variables being adjusted for by
 ```python
->>> print adjustment.admissable_set
+>>> print adjustment.admissable_set(g, ['x2'], ['x3'])
 set(['x1'])
 ```
 If we hadn't adjusted for `'x1'` we would have incorrectly found that `'x2'` had a causal effect on `'x3'` due to the counfounding pathway `x2, x1, x3`.  Adjustment for `'x1'` removes this bias.
 
 You can see the causal effect of intervention, `P(x3|do(x2))` using the measured causal effect in `adjustment`,
 ```python
->>> x = pd.DataFrame({'x2' : [0.], 'x3' : [0.]})
->>> print adjustment.effect.pdf(x)
+>>>from causality.estimation.nonparametric import CausalEffect
+>>>admissable_set = adjustment.admissable_set(g,['x2'], ['x3'])
+>>>effect = CausalEffect(X, ['x2'], ['x3'], variable_types=variable_types, admissable_set=admissable_set)
+>>>x = pd.DataFrame({'x2' : [0.], 'x3' : [0.]})
+>>>effect.pdf(x)
 0.268915603296
 ```
 

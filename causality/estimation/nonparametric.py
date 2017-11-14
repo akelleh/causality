@@ -27,7 +27,7 @@ class CausalEffect(object):
         conditional_density_vars = causes + admissable_set
         self.causes = causes
         self.effects = effects
-        self.admissable_set = admissable_set
+        self.admissable_set = list(admissable_set) # uses a list internally; AdjustForDirectCauses.admissable_set returns a set
         self.conditional_density_vars = conditional_density_vars
 
         if len(X) > 300 or max(len(causes+admissable_set),len(effects+admissable_set)) >= 3:
