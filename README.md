@@ -67,7 +67,7 @@ The `causality.nonparametric` module contains a tool for non-parametrically esti
 
 I've recently added adjustment for direct causes, where you can estimate the causal effect of fixing a set of X variables on a set of Y variables by adjusting for the parents of X in your graph.  Using the dataset above, you can run this like
 ```python
-from causality.nonparametric.causal_reg import AdjustForDirectCauses
+from causality.estimation.adjustments import AdjustForDirectCauses
 from networkx import DiGraph
 
 g = DiGraph()
