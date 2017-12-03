@@ -5,8 +5,29 @@ from sklearn.ensemble import RandomForestRegressor
 
 
 class CausalDataFrame(pd.DataFrame):
+    def zmean(self, *args, **kwargs):
+        model, arg_key = self._get_model(*args, **kwargs)
+        if arg_key:
+            del kwargs[arg_key]
+        unique_x = self[kwargs.get('x')].unique()
+        treatment = kwargs.get('x')
+        outcome = kwargs.get('y')
+        confounders = kwargs.get('z', [])
+        xs = []; ys = []
+        for xi in unique_x:
+            df = self.copy()
+            df[treatment] = xi
+            df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
+            yi = df.mean()['$E[Y|X=x,Z]$']
+            xs.append(xi)
+            ys.append(yi)
+        del kwargs['z']
+        if 'z_types' in kwargs:
+            del kwargs['z_types']
+        return pd.DataFrame({treatment: xs, outcome: ys}, index=treatment)
+
     def zplot(self, *args, **kwargs):
-        if kwargs.get('z', {}):
+        if kwargs.get('z', []):
             if kwargs.get('kind') == 'line':
                 return self._line_zplot(*args, **kwargs)
             if kwargs.get('kind') == 'bar':
@@ -19,16 +40,17 @@ class CausalDataFrame(pd.DataFrame):
         else:
             if 'z' in kwargs:
                 del kwargs['z']
+            if 'z_types' in kwargs:
+                del kwargs['z_types']
             return self.plot(*args, **kwargs)
 
     def _line_zplot(self, *args, **kwargs):
         model, arg_key = self._get_model(*args, **kwargs)
         if arg_key:
             del kwargs[arg_key]
-
         treatment = kwargs.get('x')
         outcome = kwargs.get('y')
-        confounders = kwargs.get('z', {}).keys()
+        confounders = kwargs.get('z', [])
         xs = []
         ys = []
         xmin, xmax = kwargs.get('xlim', (self[treatment].quantile(0.01), self[treatment].quantile(0.99)))
@@ -40,6 +62,8 @@ class CausalDataFrame(pd.DataFrame):
             xs.append(xi)
             ys.append(yi)
         del kwargs['z']
+        if 'z_types' in kwargs:
+            del kwargs['z_types']
         df = pd.DataFrame({treatment: xs, outcome: ys})
         return df.plot(*args, **kwargs)
 
@@ -50,7 +74,7 @@ class CausalDataFrame(pd.DataFrame):
         unique_x = self[kwargs.get('x')].unique()
         treatment = kwargs.get('x')
         outcome = kwargs.get('y')
-        confounders = kwargs.get('z', {}).keys()
+        confounders = kwargs.get('z', [])
         xs = []; ys = []
         for xi in unique_x:
             df = self.copy()
@@ -60,6 +84,8 @@ class CausalDataFrame(pd.DataFrame):
             xs.append(xi)
             ys.append(yi)
         del kwargs['z']
+        if 'z_types' in kwargs:
+            del kwargs['z_types']
         df = pd.DataFrame({treatment: xs, outcome: ys})
         kwargs['kind'] = 'bar'
         return df.plot(*args, **kwargs)
@@ -70,7 +96,7 @@ class CausalDataFrame(pd.DataFrame):
         def f(self, df, *args, **kwargs):
             model, _ = self._get_model(*args, **kwargs)
             treatment = kwargs.get('x')
-            confounders = kwargs.get('z', {}).keys()
+            confounders = kwargs.get('z', [])
             df[treatment] = kwargs['xi']
             df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
             yi = df.mean()['$E[Y|X=x,Z]$']
@@ -91,8 +117,9 @@ class CausalDataFrame(pd.DataFrame):
             upper = upper - exp
             lowers.append(lower); uppers.append(upper); expecteds.append(exp)
             xs.append(xi)
-        del kwargs['xi'], kwargs['z'], kwargs['bootstrap_samples']
-
+        for k in ['xi', 'z', 'bootstrap_samples', 'z_types']:
+            if k in kwargs:
+                del kwargs[k]
         kwargs['kind'] = 'bar'
         kwargs['yerr'] = zip(lowers, uppers)
         df = pd.DataFrame({treatment: xs, outcome: expecteds})
@@ -108,8 +135,8 @@ class CausalDataFrame(pd.DataFrame):
     def _get_model(self, *args, **kwargs):
         treatment = kwargs.get('x')
         outcome = kwargs.get('y')
-        variable_types = kwargs.get('z', {}).copy()
-        confounders = kwargs.get('z', {}).keys()
+        variable_types = kwargs.get('z_types', {}).copy()
+        confounders = kwargs.get('z', [])
         variable_types[treatment] = 'c'
 
         if kwargs.get('model'):
