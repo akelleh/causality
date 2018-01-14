@@ -6,37 +6,55 @@ from sklearn.ensemble import RandomForestRegressor
 
 class CausalDataFrame(pd.DataFrame):
     def zmean(self, *args, **kwargs):
-        model, arg_key = self._get_model(*args, **kwargs)
+        if kwargs.get('confidence_level', None) and not kwargs.get('bootstrap_samples', 0):
+            kwargs['bootstrap_samples'] = 500
+        if not kwargs.get('bootstrap_samples', 0) and not kwargs.get('confidence_level', None):
+            kwargs['bootstrap_samples'] = 1
+        confidence_level = kwargs.get('confidence_level', 0.95)
+        treatment = kwargs.get('x')
+        outcome = kwargs.get('y')
+        def f(self, df, *args, **kwargs):
+            model, _ = self._get_model(*args, **kwargs)
+            treatment = kwargs.get('x')
+            confounders = kwargs.get('z', [])
+            df[treatment] = kwargs['xi']
+            df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
+            yi = df.mean()['$E[Y|X=x,Z]$']
+            return yi
+        _, arg_key = self._get_model(*args, **kwargs)
         if arg_key:
             del kwargs[arg_key]
         unique_x = self[kwargs.get('x')].unique()
-        treatment = kwargs.get('x')
-        outcome = kwargs.get('y')
-        confounders = kwargs.get('z', [])
-        xs = []; ys = []
+        df = self.copy()
+        xs = []
+        lowers = []; uppers = []; expecteds = []
         for xi in unique_x:
-            df = self.copy()
-            df[treatment] = xi
-            df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
-            yi = df.mean()['$E[Y|X=x,Z]$']
+            kwargs['xi'] = xi
+            yi = pd.Series(self._bootstrap_statistic(f, df, *args, **kwargs))
+            lower, upper = yi.quantile([(1. - confidence_level)/2., confidence_level/2.])
+            exp = yi.mean()
+            lower = lower
+            upper = upper
+            lowers.append(lower); uppers.append(upper); expecteds.append(exp)
             xs.append(xi)
-            ys.append(yi)
-        del kwargs['z']
-        if 'z_types' in kwargs:
-            del kwargs['z_types']
-        return pd.DataFrame({treatment: xs, outcome: ys}, index=treatment)
+        kwargs['kind'] = 'bar'
+        kwargs['yerr'] = zip(lowers, uppers)
+        data = {treatment: xs, outcome: expecteds}
+        if kwargs['bootstrap_samples'] > 1:
+            data['{}_lower'.format(outcome)] = lowers
+            data['{}_upper'.format(outcome)] = uppers
+        for k in ['xi', 'z', 'bootstrap_samples', 'z_types', 'confidence_level']:
+            if k in kwargs:
+                del kwargs[k]
+        df = pd.DataFrame(data)
+        return df
 
     def zplot(self, *args, **kwargs):
         if kwargs.get('z', []):
             if kwargs.get('kind') == 'line':
                 return self._line_zplot(*args, **kwargs)
-            if kwargs.get('kind') == 'bar':
-                return self._bar_zplot(*args, **kwargs)
-            if kwargs.get('kind') == 'mean':
-                if kwargs.get('bootstrap_samples', 0):
-                    return self._bootstrapped_mean_zplot(*args, **kwargs)
-                else:
-                    return self._mean_zplot(*args, **kwargs)
+            if kwargs.get('kind') == 'bar' or kwargs.get('kind') == 'mean':
+                return self._bootstrapped_mean_zplot(*args, **kwargs)
         else:
             if 'z' in kwargs:
                 del kwargs['z']
@@ -67,62 +85,17 @@ class CausalDataFrame(pd.DataFrame):
         df = pd.DataFrame({treatment: xs, outcome: ys})
         return df.plot(*args, **kwargs)
 
-    def _mean_zplot(self, *args, **kwargs):
-        model, arg_key = self._get_model(*args, **kwargs)
-        if arg_key:
-            del kwargs[arg_key]
-        unique_x = self[kwargs.get('x')].unique()
-        treatment = kwargs.get('x')
-        outcome = kwargs.get('y')
-        confounders = kwargs.get('z', [])
-        xs = []; ys = []
-        for xi in unique_x:
-            df = self.copy()
-            df[treatment] = xi
-            df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
-            yi = df.mean()['$E[Y|X=x,Z]$']
-            xs.append(xi)
-            ys.append(yi)
-        del kwargs['z']
-        if 'z_types' in kwargs:
-            del kwargs['z_types']
-        df = pd.DataFrame({treatment: xs, outcome: ys})
-        kwargs['kind'] = 'bar'
-        return df.plot(*args, **kwargs)
-
     def _bootstrapped_mean_zplot(self, *args, **kwargs):
-        treatment = kwargs.get('x')
-        outcome = kwargs.get('y')
-        def f(self, df, *args, **kwargs):
-            model, _ = self._get_model(*args, **kwargs)
-            treatment = kwargs.get('x')
-            confounders = kwargs.get('z', [])
-            df[treatment] = kwargs['xi']
-            df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
-            yi = df.mean()['$E[Y|X=x,Z]$']
-            return yi
-        _, arg_key = self._get_model(*args, **kwargs)
-        if arg_key:
-            del kwargs[arg_key]
-        unique_x = self[kwargs.get('x')].unique()
-        df = self.copy()
-        xs = []
-        lowers = []; uppers = []; expecteds = []
-        for xi in unique_x:
-            kwargs['xi'] = xi
-            yi = pd.Series(self._bootstrap_statistic(f, df, *args, **kwargs))
-            lower, upper = yi.quantile([0.025, 0.975])
-            exp = yi.mean()
-            lower = exp - lower
-            upper = upper - exp
-            lowers.append(lower); uppers.append(upper); expecteds.append(exp)
-            xs.append(xi)
-        for k in ['xi', 'z', 'bootstrap_samples', 'z_types']:
+        df = self.zmean(*args, **kwargs)
+        kwargs['kind'] = 'bar'
+        if kwargs.get('bootstrap_samples', 0) > 1 or kwargs.get('confidence_level', None):
+            df['{}_lower'.format(kwargs['y'])] = df[kwargs['y']] - df['{}_lower'.format(kwargs['y'])]
+            df['{}_upper'.format(kwargs['y'])] = df['{}_upper'.format(kwargs['y'])] - df[kwargs['y']]
+            kwargs['yerr'] = df[['{}_lower'.format(kwargs['y']),
+                                 '{}_upper'.format(kwargs['y'])]].values.T
+        for k in ['xi', 'z', 'bootstrap_samples', 'z_types', 'confidence_level']:
             if k in kwargs:
                 del kwargs[k]
-        kwargs['kind'] = 'bar'
-        kwargs['yerr'] = zip(lowers, uppers)
-        df = pd.DataFrame({treatment: xs, outcome: expecteds})
         return df.plot(*args, **kwargs)
 
     def _bootstrap_statistic(self, f, df, *args, **kwargs):
