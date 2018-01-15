@@ -27,13 +27,13 @@ df = CausalDataFrame({'x': x, 'y': y, 'z': z})
 df.zplot(x='x', y='y', z_types={'z': 'c'}, z=['z'], kind='bar', bootstrap_samples=500); pp.ylabel("$E[Y|do(X=x)]$"); pp.show()
 
 ```
-![The causal estimate](/img/discrete_zplot.png)
+![The causal estimate](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/discrete_zplot.png)
 
  You can also still use all of the usual methods, for example to get a naive plot for comparison.
 
  ```python
 df.groupby('x').mean().reset_index().plot(x='x', y='y', kind='bar'); pp.ylabel("$E[Y|X=x]$"); pp.show()
  ```
- ![The naive estimate](/img/discrete_zplot_naive.png)
+ ![The naive estimate](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/discrete_zplot_naive.png)
 
 The correct answer in this example is that if you intervene to set the value of `x` to `x=0`, you'll find (on average) `y=1`. If you set `x=1`, you'll find (on average) `y=2`. You can see the causal `zplot` method finds the correct answer, within the 95% confidence level. You can see naive observational estimate has much lower `y` at `x=0`!
