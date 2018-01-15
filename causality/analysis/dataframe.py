@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import scipy.stats as ss
 from statsmodels.nonparametric.kernel_regression import KernelReg
 from sklearn.ensemble import RandomForestRegressor
 
@@ -28,13 +29,12 @@ class CausalDataFrame(pd.DataFrame):
         df = self.copy()
         xs = []
         lowers = []; uppers = []; expecteds = []
+        z = ss.norm().ppf(1. - (1. - confidence_level) / 2.)
         for xi in unique_x:
             kwargs['xi'] = xi
-            yi = pd.Series(self._bootstrap_statistic(f, df, *args, **kwargs))
-            lower, upper = yi.quantile([(1. - confidence_level)/2., confidence_level/2.])
-            exp = yi.mean()
-            lower = lower
-            upper = upper
+            yi = self._bootstrap_statistic(f, df, *args, **kwargs)
+            exp = np.mean(yi)
+            lower, upper = exp - z * np.std(yi), exp + z * np.std(yi)#
             lowers.append(lower); uppers.append(upper); expecteds.append(exp)
             xs.append(xi)
         kwargs['kind'] = 'bar'
@@ -116,9 +116,9 @@ class CausalDataFrame(pd.DataFrame):
             model = kwargs.get('model')()
             arg_key = 'model'
             model.fit(self[[treatment] + confounders], self[outcome])
-        elif kwargs.get('fit_model'):
-            model = kwargs.get('fit_model')
-            arg_key = 'fit_model'
+        elif kwargs.get('fitted_model'):
+            model = kwargs.get('fitted_model')
+            arg_key = 'fitted_model'
         elif kwargs.get('model_type', '') == 'kernel':
             model = KernelModelWrapper()
             arg_key = 'model_type'
