@@ -31,7 +31,7 @@ Here, we've created a dataset where `x` has a direct effect on `y`, but a third 
 df.zplot(x='x', y='y', z_types={'z': 'c'}, z=['z'], kind='bar', bootstrap_samples=500); pp.ylabel("$E[Y|do(X=x)]$"); pp.show()
 
 ```
-![The causal estimate](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/discrete_zplot.png)
+![The causal estimate](./img/discrete_zplot.png)
 
 This `zplot` method passes args and kwargs to the `plot` method of the `pandas.DataFrame`, so you can pass it all of its usual formatting options. We'll give a more complete summary of all of its particular methods below.
 
@@ -40,7 +40,7 @@ This `zplot` method passes args and kwargs to the `plot` method of the `pandas.D
  ```python
 df.groupby('x').mean().reset_index().plot(x='x', y='y', kind='bar'); pp.ylabel("$E[Y|X=x]$"); pp.show()
  ```
- ![The naive estimate](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/discrete_zplot_naive.png)
+ ![The naive estimate](./img/discrete_zplot_naive.png)
 
 The correct answer in this example is that if you intervene to set the value of `x` to `x=0`, you'll find (on average) `y=1`. If you set `x=1`, you'll find (on average) `y=2`. You can see the causal `zplot` method finds the correct answer, within the 95% confidence level. You can see naive observational estimate has much lower `y` at `x=0`!
 
@@ -64,21 +64,21 @@ We can see from this data generating process that the true relationship, holding
 ```python
 X.plot(x='x', y='y', style='bo', alpha=0.2, kind='scatter')
 ```
- ![The naive estimate](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/continuous_zplot_naive.png)
+ ![The naive estimate](./img/continuous_zplot_naive.png)
 
 We can control for the `z` variables, and recover the negative relationship!
 
 ```python
 X.zplot(x='x', y='y', z=['z1', 'z2'], z_types={'z1': 'c', 'z2': 'c'}, kind='line')
 ```
- ![The naive estimate](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/continuous_zplot_random_forest.png)
+ ![The naive estimate](./img/continuous_zplot_random_forest.png)
 
  Unfortunately, the relationship is very noisy. The model used by default to do the controlling is a random forest model. It won't be the best model for every problem, and doesn't work here as well as kernel regression. Those are the two typed models that are currently supported for automatic controlling. You can switch to kernel density regression by specifying `model_type='kernel'`.
 
 ```python
 X.zplot(x='x', y='y', z=['z1', 'z2'], z_types={'z1': 'c', 'z2': 'c'}, kind='line', model_type='kernel')
 ```
- ![The naive estimate](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/continuous_zplot_kernel.png)
+ ![The naive estimate](./img/continuous_zplot_kernel.png)
 
  You're free to use other models you define yourself, as well. The models can be fitted or not. If the model is not fitted, you should pass the model object through the `model` kwarg.
 
@@ -90,7 +90,7 @@ outcome = 'y'
 confounders = ['z1', 'z2']
 X.zplot(x='x', y='y', z=confounders, z_types={'z1': 'c', 'z2': 'c'}, kind='line', model=LinearRegression)
 ```
-![linear regression model results](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/continuous_zplot_linear.png)
+![linear regression model results](./img/continuous_zplot_linear.png)
 
 
 If you'd like to pass a fit model, for example as you might if you're fitting a complicated model like a neural network, you can pass it through the `fitted_model` kwarg. Here's a simple multi-layer perceptron, just to give an example.
@@ -107,7 +107,7 @@ model.fit(X[[treatment] + confounders], X[outcome])
 X.zplot(x='x', y='y', z=confounders, z_types={'z1': 'c', 'z2': 'c'}, kind='line', fitted_model=model)
 ```
 
-![MLP model results](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/continuous_zplot_mlp.png)
+![MLP model results](./img/continuous_zplot_mlp.png)
 
 With discrete variables, it's a little easier to bootstrap error bars. We have some kwargs available to give a little extra control over the bootstrapping process. Note that we use the normal approximation for the bootstrap confidence intervals. Using the percentile approach tended to give overly narrow intervals.
 
@@ -125,7 +125,7 @@ df = CausalDataFrame({'x': x, 'y': y, 'z': z})
 # and the interface to zplot is basically the same as the pandas.DataFrame.plot method!
 df.zplot(x='x', y='y', z_types={'z': 'c'}, z=['z'], kind='bar', bootstrap_samples=500); pp.ylabel("$E[Y|do(X=x)]$"); pp.show()
 ```
-![discrete plot with bootstrap parameter](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/discrete_zplot_bootstrap.png)
+![discrete plot with bootstrap parameter](./img/discrete_zplot_bootstrap.png)
 
 The default number of samples for the bootstrap is 500 samples. Much less than that tended to give overly narrow intervals. I'd encourage you to test them yourself with a simulation if you're planning to vary this parameter!
 
@@ -133,4 +133,4 @@ You can also adjust the confidence level for your error bars. The default is the
 ```
 df.zplot(x='x', y='y', z=['z'], z_types={'z': 'c'}, kind='bar', bootstrap_samples=500, confidence_level=0.80)
 ```
-![discrete plot with bootstrap parameter and 80%CL](https://github.com/akelleh/causality/blob/CAUS-18-update-readmes/causality/analysis/img/discrete_zplot_bootstrap_80CL.png)
+![discrete plot with bootstrap parameter and 80%CL](./img/discrete_zplot_bootstrap_80CL.png)
