@@ -145,3 +145,9 @@ The interface for the `zmean` method is exactly like the `zplot` method. You can
 df.zmean(x='x', y='y', z=['z'], z_types={'z': 'c'}, bootstrap_samples=500, confidence_level=0.95)
 ```
 ![zmean results](img/zmean_results.png)
+
+Leaving off the `bootstrap_samples` kwarg while specifying the `confidence_level` will cause `zmean` to default to `bootstrap_samples=500`. Leaving off both keyword arguments will result in no confidence intervals being given:
+```python
+df.zmean(x='x', y='y', z=['z'], z_types={'z': 'c'})
+```
+![zmean results](img/zmean_results_no_CI.png)
