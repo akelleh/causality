@@ -64,21 +64,21 @@ We can see from this data generating process that the true relationship, holding
 ```python
 X.plot(x='x', y='y', style='bo', alpha=0.2, kind='scatter')
 ```
- ![The naive estimate](./img/continuous_zplot_naive.png)
+ ![The naive estimate](img/continuous_zplot_naive.png)
 
 We can control for the `z` variables, and recover the negative relationship!
 
 ```python
 X.zplot(x='x', y='y', z=['z1', 'z2'], z_types={'z1': 'c', 'z2': 'c'}, kind='line')
 ```
- ![The naive estimate](./img/continuous_zplot_random_forest.png)
+ ![The random forest estimate](img/continuous_zplot_random_forest.png)
 
  Unfortunately, the relationship is very noisy. The model used by default to do the controlling is a random forest model. It won't be the best model for every problem, and doesn't work here as well as kernel regression. Those are the two typed models that are currently supported for automatic controlling. You can switch to kernel density regression by specifying `model_type='kernel'`.
 
 ```python
 X.zplot(x='x', y='y', z=['z1', 'z2'], z_types={'z1': 'c', 'z2': 'c'}, kind='line', model_type='kernel')
 ```
- ![The naive estimate](./img/continuous_zplot_kernel.png)
+ ![The kernel estimate](img/continuous_zplot_kernel.png)
 
  You're free to use other models you define yourself, as well. The models can be fitted or not. If the model is not fitted, you should pass the model object through the `model` kwarg.
 
