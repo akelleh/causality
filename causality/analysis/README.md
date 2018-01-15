@@ -134,3 +134,14 @@ You can also adjust the confidence level for your error bars. The default is the
 df.zplot(x='x', y='y', z=['z'], z_types={'z': 'c'}, kind='bar', bootstrap_samples=500, confidence_level=0.80)
 ```
 ![discrete plot with bootstrap parameter and 80%CL](./img/discrete_zplot_bootstrap_80CL.png)
+
+You might also like to just get the values and error bars out from these plots. You can do that for the discrete plot with the `zmean` method.
+
+## The `CausalDataFrame.zmean` method
+
+The interface for the `zmean` method is exactly like the `zplot` method. You can pass models and bootstrap parameters in the same way. The return value is a new dataframe.
+
+```python
+df.zmean(x='x', y='y', z=['z'], z_types={'z': 'c'}, bootstrap_samples=500, confidence_level=0.95)
+```
+![zmean results](img/zmean_results.png)
