@@ -1,76 +1,23 @@
 import pandas as pd
 import numpy as np
+import scipy.stats as ss
 from statsmodels.nonparametric.kernel_regression import KernelReg
 from sklearn.ensemble import RandomForestRegressor
 
 
 class CausalDataFrame(pd.DataFrame):
-    def zplot(self, *args, **kwargs):
-        if kwargs.get('z', {}):
-            if kwargs.get('kind') == 'line':
-                return self._line_zplot(*args, **kwargs)
-            if kwargs.get('kind') == 'bar':
-                return self._bar_zplot(*args, **kwargs)
-            if kwargs.get('kind') == 'mean':
-                if kwargs.get('bootstrap_samples', 0):
-                    return self._bootstrapped_mean_zplot(*args, **kwargs)
-                else:
-                    return self._mean_zplot(*args, **kwargs)
-        else:
-            if 'z' in kwargs:
-                del kwargs['z']
-            return self.plot(*args, **kwargs)
-
-    def _line_zplot(self, *args, **kwargs):
-        model, arg_key = self._get_model(*args, **kwargs)
-        if arg_key:
-            del kwargs[arg_key]
-
-        treatment = kwargs.get('x')
-        outcome = kwargs.get('y')
-        confounders = kwargs.get('z', {}).keys()
-        xs = []
-        ys = []
-        xmin, xmax = kwargs.get('xlim', (self[treatment].quantile(0.01), self[treatment].quantile(0.99)))
-        for xi in np.arange(xmin, xmax, (xmax - xmin) / 100.):
-            df = self.copy()
-            df[treatment] = xi
-            df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
-            yi = df.mean()['$E[Y|X=x,Z]$']
-            xs.append(xi)
-            ys.append(yi)
-        del kwargs['z']
-        df = pd.DataFrame({treatment: xs, outcome: ys})
-        return df.plot(*args, **kwargs)
-
-    def _mean_zplot(self, *args, **kwargs):
-        model, arg_key = self._get_model(*args, **kwargs)
-        if arg_key:
-            del kwargs[arg_key]
-        unique_x = self[kwargs.get('x')].unique()
-        treatment = kwargs.get('x')
-        outcome = kwargs.get('y')
-        confounders = kwargs.get('z', {}).keys()
-        xs = []; ys = []
-        for xi in unique_x:
-            df = self.copy()
-            df[treatment] = xi
-            df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
-            yi = df.mean()['$E[Y|X=x,Z]$']
-            xs.append(xi)
-            ys.append(yi)
-        del kwargs['z']
-        df = pd.DataFrame({treatment: xs, outcome: ys})
-        kwargs['kind'] = 'bar'
-        return df.plot(*args, **kwargs)
-
-    def _bootstrapped_mean_zplot(self, *args, **kwargs):
+    def zmean(self, *args, **kwargs):
+        if kwargs.get('confidence_level', None) and not kwargs.get('bootstrap_samples', 0):
+            kwargs['bootstrap_samples'] = 500
+        if not kwargs.get('bootstrap_samples', 0) and not kwargs.get('confidence_level', None):
+            kwargs['bootstrap_samples'] = 1
+        confidence_level = kwargs.get('confidence_level', 0.95)
         treatment = kwargs.get('x')
         outcome = kwargs.get('y')
         def f(self, df, *args, **kwargs):
             model, _ = self._get_model(*args, **kwargs)
             treatment = kwargs.get('x')
-            confounders = kwargs.get('z', {}).keys()
+            confounders = kwargs.get('z', [])
             df[treatment] = kwargs['xi']
             df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
             yi = df.mean()['$E[Y|X=x,Z]$']
@@ -82,20 +29,73 @@ class CausalDataFrame(pd.DataFrame):
         df = self.copy()
         xs = []
         lowers = []; uppers = []; expecteds = []
+        z = ss.norm().ppf(1. - (1. - confidence_level) / 2.)
         for xi in unique_x:
             kwargs['xi'] = xi
-            yi = pd.Series(self._bootstrap_statistic(f, df, *args, **kwargs))
-            lower, upper = yi.quantile([0.025, 0.975])
-            exp = yi.mean()
-            lower = exp - lower
-            upper = upper - exp
+            yi = self._bootstrap_statistic(f, df, *args, **kwargs)
+            exp = np.mean(yi)
+            lower, upper = exp - z * np.std(yi), exp + z * np.std(yi)#
             lowers.append(lower); uppers.append(upper); expecteds.append(exp)
             xs.append(xi)
-        del kwargs['xi'], kwargs['z'], kwargs['bootstrap_samples']
-
         kwargs['kind'] = 'bar'
         kwargs['yerr'] = zip(lowers, uppers)
-        df = pd.DataFrame({treatment: xs, outcome: expecteds})
+        data = {treatment: xs, outcome: expecteds}
+        if kwargs['bootstrap_samples'] > 1:
+            data['{}_lower'.format(outcome)] = lowers
+            data['{}_upper'.format(outcome)] = uppers
+        for k in ['xi', 'z', 'bootstrap_samples', 'z_types', 'confidence_level']:
+            if k in kwargs:
+                del kwargs[k]
+        df = pd.DataFrame(data)
+        return df
+
+    def zplot(self, *args, **kwargs):
+        if kwargs.get('z', []):
+            if kwargs.get('kind') == 'line':
+                return self._line_zplot(*args, **kwargs)
+            if kwargs.get('kind') == 'bar' or kwargs.get('kind') == 'mean':
+                return self._bootstrapped_mean_zplot(*args, **kwargs)
+        else:
+            if 'z' in kwargs:
+                del kwargs['z']
+            if 'z_types' in kwargs:
+                del kwargs['z_types']
+            return self.plot(*args, **kwargs)
+
+    def _line_zplot(self, *args, **kwargs):
+        model, arg_key = self._get_model(*args, **kwargs)
+        if arg_key:
+            del kwargs[arg_key]
+        treatment = kwargs.get('x')
+        outcome = kwargs.get('y')
+        confounders = kwargs.get('z', [])
+        xs = []
+        ys = []
+        xmin, xmax = kwargs.get('xlim', (self[treatment].quantile(0.01), self[treatment].quantile(0.99)))
+        for xi in np.arange(xmin, xmax, (xmax - xmin) / 100.):
+            df = self.copy()
+            df[treatment] = xi
+            df['$E[Y|X=x,Z]$'] = model.predict(df[[treatment] + confounders])
+            yi = df.mean()['$E[Y|X=x,Z]$']
+            xs.append(xi)
+            ys.append(yi)
+        del kwargs['z']
+        if 'z_types' in kwargs:
+            del kwargs['z_types']
+        df = pd.DataFrame({treatment: xs, outcome: ys})
+        return df.plot(*args, **kwargs)
+
+    def _bootstrapped_mean_zplot(self, *args, **kwargs):
+        df = self.zmean(*args, **kwargs)
+        kwargs['kind'] = 'bar'
+        if kwargs.get('bootstrap_samples', 0) > 1 or kwargs.get('confidence_level', None):
+            df['{}_lower'.format(kwargs['y'])] = df[kwargs['y']] - df['{}_lower'.format(kwargs['y'])]
+            df['{}_upper'.format(kwargs['y'])] = df['{}_upper'.format(kwargs['y'])] - df[kwargs['y']]
+            kwargs['yerr'] = df[['{}_lower'.format(kwargs['y']),
+                                 '{}_upper'.format(kwargs['y'])]].values.T
+        for k in ['xi', 'z', 'bootstrap_samples', 'z_types', 'confidence_level']:
+            if k in kwargs:
+                del kwargs[k]
         return df.plot(*args, **kwargs)
 
     def _bootstrap_statistic(self, f, df, *args, **kwargs):
@@ -108,17 +108,17 @@ class CausalDataFrame(pd.DataFrame):
     def _get_model(self, *args, **kwargs):
         treatment = kwargs.get('x')
         outcome = kwargs.get('y')
-        variable_types = kwargs.get('z', {}).copy()
-        confounders = kwargs.get('z', {}).keys()
+        variable_types = kwargs.get('z_types', {}).copy()
+        confounders = kwargs.get('z', [])
         variable_types[treatment] = 'c'
 
         if kwargs.get('model'):
             model = kwargs.get('model')()
             arg_key = 'model'
             model.fit(self[[treatment] + confounders], self[outcome])
-        elif kwargs.get('fit_model'):
-            model = kwargs.get('fit_model')
-            arg_key = 'fit_model'
+        elif kwargs.get('fitted_model'):
+            model = kwargs.get('fitted_model')
+            arg_key = 'fitted_model'
         elif kwargs.get('model_type', '') == 'kernel':
             model = KernelModelWrapper()
             arg_key = 'model_type'
