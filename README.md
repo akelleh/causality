@@ -15,7 +15,7 @@ The simplest interface to this package is probably through the `CausalDataFrame`
 
 The `CausalDataFrame` current supports two kinds of causal analysis. First, it has a `CausalDataFrame.zmean` method. This method lets you control for a set of variables, `z`, when you're trying to estimate the effect of a discrete variable `x` on a continuous variable, `y`. It supports both returning the `y` estimates at each `x` value, as well as providing bootstrap error bars. For more details, check out the readme [here]().
 
-The second kind of analysis supported is plotting for discrete or continuous `x` to show the effect on continous `y`.
+The second kind of analysis supported is plotting to show the effect of discrete or continuous `x` on continous `y` while controlling for `z`. You can do this with the `CausalDataFrame.zplot` method. For details, check out the readme [here]().
 
 
 ## Measuring Causal Effects
