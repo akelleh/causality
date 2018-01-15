@@ -9,13 +9,13 @@ Assuming you have pip installed, just run
 pip install causality
 ```
 
-## Causal Analysis
+## [Causal Analysis](https://github.com/akelleh/causality/tree/master/causality/analysis)
 
 The simplest interface to this package is probably through the `CausalDataFrame` object in [`causality.analysis.CausalDataFrame`](https://github.com/akelleh/causality/blob/master/causality/analysis/dataframe.py#L8). This is just an extension of the `pandas.DataFrame` object, and so it inherits the same methods.
 
-The `CausalDataFrame` current supports two kinds of causal analysis. First, it has a `CausalDataFrame.zmean` method. This method lets you control for a set of variables, `z`, when you're trying to estimate the effect of a discrete variable `x` on a continuous variable, `y`. It supports both returning the `y` estimates at each `x` value, as well as providing bootstrap error bars. For more details, check out the readme [here]().
+The `CausalDataFrame` current supports two kinds of causal analysis. First, it has a `CausalDataFrame.zmean` method. This method lets you control for a set of variables, `z`, when you're trying to estimate the effect of a discrete variable `x` on a continuous variable, `y`. It supports both returning the `y` estimates at each `x` value, as well as providing bootstrap error bars. For more details, check out the readme [here](https://github.com/akelleh/causality/tree/master/causality/analysis).
 
-The second kind of analysis supported is plotting to show the effect of discrete or continuous `x` on continous `y` while controlling for `z`. You can do this with the `CausalDataFrame.zplot` method. For details, check out the readme [here]().
+The second kind of analysis supported is plotting to show the effect of discrete or continuous `x` on continous `y` while controlling for `z`. You can do this with the `CausalDataFrame.zplot` method. For details, check out the readme [here](https://github.com/akelleh/causality/tree/master/causality/analysis).
 
 
 ## Measuring Causal Effects
