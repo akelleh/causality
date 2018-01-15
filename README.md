@@ -6,8 +6,17 @@ This package contains tools for causal analysis using observational (rather than
 
 Assuming you have pip installed, just run
 ```
-pip install causality 
+pip install causality
 ```
+
+## Causal Analysis
+
+The simplest interface to this package is probably through the `CausalDataFrame` object in [`causality.analysis.CausalDataFrame`](https://github.com/akelleh/causality/blob/master/causality/analysis/dataframe.py#L8). This is just an extension of the `pandas.DataFrame` object, and so it inherits the same methods.
+
+The `CausalDataFrame` current supports two kinds of causal analysis. First, it has a `CausalDataFrame.zmean` method. This method lets you control for a set of variables, `z`, when you're trying to estimate the effect of a discrete variable `x` on a continuous variable, `y`. It supports both returning the `y` estimates at each `x` value, as well as providing bootstrap error bars. For more details, check out the readme [here]().
+
+The second kind of analysis supported is plotting to show the effect of discrete or continuous `x` on continous `y` while controlling for `z`. You can do this with the `CausalDataFrame.zplot` method. For details, check out the readme [here]().
+
 
 ## Measuring Causal Effects
 
@@ -51,10 +60,10 @@ graph = ic_algorithm.search(X, variable_types)
 Now, we have the inferred graph stored in `graph`.  In this graph, each variable is a node (named from the DataFrame columns), and each edge represents statistical dependence between the nodes that can't be eliminated by conditioning on the variables specified for the search.  If an edge can be oriented with the data available, the arrowhead is indicated in `'arrows'`.  If the edge also satisfies the local criterion for genuine causation, then that directed edge will have `marked=True`.  If we print the edges from the result of our search, we can see which edges are oriented, and which satisfy the local criterion for genuine causation:
 ```python
 >>> graph.edges(data=True)
-[('x2', 'x1', {'arrows': [], 'marked': False}), 
- ('x2', 'x4', {'arrows': ['x4'], 'marked': False}), 
- ('x3', 'x1', {'arrows': [], 'marked': False}), 
- ('x3', 'x4', {'arrows': ['x4'], 'marked': False}), 
+[('x2', 'x1', {'arrows': [], 'marked': False}),
+ ('x2', 'x4', {'arrows': ['x4'], 'marked': False}),
+ ('x3', 'x1', {'arrows': [], 'marked': False}),
+ ('x3', 'x4', {'arrows': ['x4'], 'marked': False}),
  ('x4', 'x5', {'arrows': ['x5'], 'marked': True})]
 ```
 
