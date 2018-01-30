@@ -122,7 +122,7 @@ class IC():
         self.separating_sets = {}
         if not self.max_k:
             self.max_k = len(self._g.node)+1
-        for N in range(self.max_k):
+        for N in range(self.max_k + 1):
             for (x, y) in list(self._g.edges()):
                 x_neighbors = list(self._g.neighbors(x))
                 y_neighbors = list(self._g.neighbors(y))
