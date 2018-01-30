@@ -15,17 +15,18 @@ class SearchException(Exception):
     pass
 
 class IC():
-    def __init__(self, independence_test, alpha=0.05):
+    def __init__(self, independence_test, alpha=0.05, k=None):
         self.independence_test = independence_test
         self.alpha = alpha
         self.separating_sets = None
         self._g = None
+        self.max_k = k
 
     def search(self, data, variable_types):
         self._build_g(variable_types)
         self._find_skeleton(data, variable_types)
         self._orient_colliders()
-        
+
         added_arrows = True
         while added_arrows:
             R1_added_arrows = self._apply_recursion_rule_1()
@@ -63,7 +64,7 @@ class IC():
                         self._g[a][c]['marked'] = True
                         added_arrows = True
         return added_arrows
-       
+
     def _apply_recursion_rule_2(self):
         added_arrows = False
         for (a,b) in self._g.edges():
@@ -85,7 +86,7 @@ class IC():
                     neighbors += [(child, neighbor) for neighbor in self._g.neighbors(child)]
                 seen.append(child)
         return False
-        
+
 
     def _orient_colliders(self):
         for v_i, v_j in self._g.edges():
@@ -96,7 +97,7 @@ class IC():
                     if v_c not in self.separating_set(v_a,v_b):
                         self._g[v_a][v_c]['arrows'].append(v_c)
                         self._g[v_b][v_c]['arrows'].append(v_c)
-       
+
     def separating_set(self, xi, xj, data=None, variable_types=None):
         if not self.separating_sets and data and variable_types:
             if not self._g:
@@ -109,27 +110,27 @@ class IC():
         elif (xj,xi) in self.separating_sets:
             return self.separating_sets[(xj,xi)]
         else:
-            return False 
- 
+            return False
+
     def _find_skeleton(self, data, variable_types):
         """
-        For each pair of nodes, run a conditional independence test over 
-        larger and larger conditioning sets to try to find a set that 
+        For each pair of nodes, run a conditional independence test over
+        larger and larger conditioning sets to try to find a set that
         d-separates the pair.  If such a set exists, cut the edge between
         the nodes.  If not, keep the edge.
         """
         self.separating_sets = {}
-        for N in range(len(self._g.node)+1):
+        if not self.max_k:
+            self.max_k = len(self._g.node)+1
+        for N in range(self.max_k + 1):
             for (x, y) in list(self._g.edges()):
                 x_neighbors = list(self._g.neighbors(x))
                 y_neighbors = list(self._g.neighbors(y))
                 z_candidates = list(set(x_neighbors + y_neighbors) - set([x,y]))
                 for z in itertools.combinations(z_candidates, N):
-                    test = self.independence_test([y], [x], list(z), 
+                    test = self.independence_test([y], [x], list(z),
                         data, self.alpha)
                     if test.independent():
                         self._g.remove_edge(x,y)
                         self.separating_sets[(x,y)] = z
-                        break                        
-        
-    
+                        break
