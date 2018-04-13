@@ -2,3 +2,5 @@
 *.pyc
 .coverage
 htmlcov/
+*.eggs
+*.log

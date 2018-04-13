@@ -11,12 +11,16 @@ DEFAULT_BINS = 2
 
 class RobustRegressionTest():
     def __init__(self, y, x, z, data, alpha):
+        self.x = x
+        self.y = y
+        self.z = z
         self.regression = sm.RLM(data[y], data[x+z])
         self.result = self.regression.fit()
         self.coefficient = self.result.params[x][0]
         confidence_interval = self.result.conf_int(alpha=alpha/2.)
         self.upper = confidence_interval[1][x][0]
         self.lower = confidence_interval[0][x][0]
+
 
     def independent(self):
         if self.coefficient > 0.:
@@ -349,7 +353,7 @@ class MixedMutualInformationTest(object):
             def logp(value):
                 xi = [value[i] for i in range(len(x))]
                 yi = [value[i+len(x)] for i in range(len(y))]
-                zi = [value[i+len(x)+len(y)] for i in range(len(z))] 
+                zi = [value[i+len(x)+len(y)] for i in range(len(z))]
                 if len(z) == 0:
                     log_px_given_z = np.log(self.densities[0].pdf(data_predict=xi))
                     log_py_given_z = np.log(self.densities[1].pdf(data_predict=yi))

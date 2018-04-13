@@ -1,5 +1,7 @@
 import networkx as nx
 import itertools
+import multiprocessing
+import collections
 
 """
 This is an implementation of the IC* (Inductive Causation with latent
@@ -21,6 +23,7 @@ class IC():
         self.separating_sets = None
         self._g = None
         self.max_k = k
+        self.pool = multiprocessing.Pool(processes=10 * multiprocessing.cpu_count())
 
     def search(self, data, variable_types):
         self._build_g(variable_types)
@@ -112,6 +115,22 @@ class IC():
         else:
             return False
 
+    def await_test_results(self, test_results):
+        while test_results:
+            try:
+                result = test_results.popleft()
+                test = result.get(timeout=1)
+            except Exception: # TimeoutError
+                test_results.append(result)
+                continue
+
+            if test.independent():
+                self._g.remove_edge(test.x, test.y)
+                self.separating_sets[(test.x,test.y)] = test.z
+                break
+        return collections.deque()
+
+
     def _find_skeleton(self, data, variable_types):
         """
         For each pair of nodes, run a conditional independence test over
@@ -121,16 +140,15 @@ class IC():
         """
         self.separating_sets = {}
         if not self.max_k:
-            self.max_k = len(self._g.node)+1
-        for N in range(self.max_k + 1):
+            self.max_k = len(self._g.node) + 1
+        test_results = collections.deque()
+        for N in range(1, self.max_k + 1):
             for (x, y) in list(self._g.edges()):
                 x_neighbors = list(self._g.neighbors(x))
                 y_neighbors = list(self._g.neighbors(y))
                 z_candidates = list(set(x_neighbors + y_neighbors) - set([x,y]))
                 for z in itertools.combinations(z_candidates, N):
-                    test = self.independence_test([y], [x], list(z),
-                        data, self.alpha)
-                    if test.independent():
-                        self._g.remove_edge(x,y)
-                        self.separating_sets[(x,y)] = z
-                        break
+                    test_results.append(
+                            self.pool.apply_async(self.independence_test,
+                                ([y], [x], list(z), data, self.alpha)))
+                test_results = self.await_test_results(test_results)
