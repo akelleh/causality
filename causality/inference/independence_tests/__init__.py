@@ -194,9 +194,9 @@ class MixedChiSquaredTest(object):
             print(value)
             print(self.x)
 
-            xi = value[:x_length]#[value[i] for i in range(x_length)]
-            yi = value[x_length:x_length + y_length]#[value[i + x_length] for i in range(y_length)]
-            zi = value[x_length + y_length: x_length + y_length + z_length]#[value[i + x_length + y_length] for i in range(z_length)]
+            xi = [value[:x_length]]#[value[i] for i in range(x_length)]
+            yi = [value[x_length:x_length + y_length]]#[value[i + x_length] for i in range(y_length)]
+            zi = [value[x_length + y_length: x_length + y_length + z_length]]#[value[i + x_length + y_length] for i in range(z_length)]
             if z_length == 0:
                 print(xi.shape, yi, zi)
                 log_px_given_z = np.log(self.densities[0].pdf(data_predict=xi))
