@@ -194,22 +194,22 @@ class MixedChiSquaredTest(object):
             print(value)
             print(self.x)
 
-            xi = [value[:x_length]]#[value[i] for i in range(x_length)]
-            yi = [value[x_length:x_length + y_length]]#[value[i + x_length] for i in range(y_length)]
-            zi = [value[x_length + y_length: x_length + y_length + z_length]]#[value[i + x_length + y_length] for i in range(z_length)]
+            xi = value[:, :x_length]#[value[i] for i in range(x_length)]
+            yi = value[:, x_length:x_length + y_length]#[value[i + x_length] for i in range(y_length)]
+            zi = value[:, x_length + y_length: x_length + y_length + z_length]#[value[i + x_length + y_length] for i in range(z_length)]
             if z_length == 0:
-                print(xi.shape, yi, zi)
+                #print(xi.shape, yi, zi)
                 log_px_given_z = np.log(self.densities[0].pdf(data_predict=xi))
                 log_py_given_z = np.log(self.densities[1].pdf(data_predict=yi))
                 log_pz = 0.
             else:
-                #print(xi[0].value, yi, zi)
+                print(xi.shape.eval(), yi, zi.shape)
                 log_px_given_z = np.log(self.densities[0].pdf(endog_predict=xi, exog_predict=zi))
                 log_py_given_z =np.log(self.densities[1].pdf(endog_predict=yi, exog_predict=zi))
                 log_pz = np.log(self.densities[2].pdf(data_predict=zi))
             return log_px_given_z + log_py_given_z + log_pz
         with pymc3.Model() as model:
-            ci_joint = pymc3.DensityDist('joint_sample', logp, shape=(len(self.x + self.y + self.z),))  # self.mcmc_initialization)
+            ci_joint = pymc3.DensityDist('joint_sample', logp, shape=(1,len(self.x + self.y + self.z)))  # self.mcmc_initialization)
             trace = pymc3.sample(self.N, tune=self.burn)
         return pd.DataFrame(trace('joint_sample')[:], columns=self.x + self.y + self.z)
 
