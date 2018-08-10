@@ -25,7 +25,7 @@ the [`causality.estimation`](https://github.com/akelleh/causality/tree/master/ca
 
 ## DAG Inference
 
-The `causality.inference` module will contain various algorithms for inferring causal DAGs.  Currently (2016/01/23), the only algorithm implemented is the IC\* algorithm from Pearl (2000).  It has decent test coverage, but feel free to write some more!  I've left some stubs in `tests/unit/test\_IC.py`.
+The `causality.inference` module will contain various algorithms for inferring causal DAGs.  Currently (2016/01/23), the only algorithm implemented is the IC\* algorithm from Pearl (2000).  It has decent test coverage, but feel free to write some more!  I've left some stubs in `tests/unit/test_IC.py`.
 
 To run a graph search on a dataset, you can use the algorithms like (using IC\* as an example):
 
