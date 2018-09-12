@@ -14,6 +14,38 @@ class TestBackDoorAdjustments(TestAPI):
                                ('x2','x5'),('x5','y'),('x4','x'),('x4','y'),
                                ('x','x6'),('x6','y')])
 
+    def test_backdoor_adjustment_assumptions_satisfied(self):
+        # Initialize adjustment class
+        adjustment = backDoorAdjustments()
+
+        # Test 1
+        causes = []
+        effects = ['y']
+
+        # This test should raise an AdjustmentException for empty causes
+        with self.assertRaises(AdjustmentException):
+            set([ s for s in adjustment.minimal_backdoor_admissable_sets(self.g,causes,effects)])
+
+        # Test 2
+        causes = ['x']
+        effects = []
+
+        # This test should raise an AdjustmentException for empty effects
+        with self.assertRaises(AdjustmentException):
+            set([ s for s in adjustment.minimal_backdoor_admissable_sets(self.g,causes,effects)])
+
+        # Test 3
+        causes = ['x']
+        effects = ['y']
+
+        noDiGraph = nx.Graph()
+        noDiGraph.add_nodes_from([('1','2'),('2','1')])
+
+        # This test should raise an AdjustmentException for no DAG
+        with self.assertRaises(AdjustmentException):
+            set([ s for s in adjustment.minimal_backdoor_admissable_sets(noDiGraph,causes,effects)])
+
+
     def test_backdoor_adjustment_single_cause_single_effect(self):
         # Initialize adjustment class
         adjustment = backDoorAdjustments()
