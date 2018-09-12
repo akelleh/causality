@@ -39,9 +39,9 @@ class backDoorAdjustments(object):
         if (len(causes)==0 or len(effects)==0):
             raise AdjustmentException("Causes/Effects can not be empty")
 
-    def __areCausesDSeparatedFromEffects(self, g, s, causes, effects):
+    def __are_causes_dseparated_from_effects(self, g, s, causes, effects):
         # Internal function to exit double loop
-        def isCauseDSeparatedFromEffects(g, s, cause, effects):
+        def is_cause_dseparated_from_effects(g, s, cause, effects):
             for effect in effects:
                 if g.is_active_trail(cause, effect, observed=s):
                     return(False)
@@ -49,15 +49,15 @@ class backDoorAdjustments(object):
 
         causesDSeparatedFromEffectsInGraph = True
         for cause in causes:
-            if not isCauseDSeparatedFromEffects(g,s,cause,effects):
+            if not is_cause_dseparated_from_effects(g,s,cause,effects):
                 causesDSeparatedFromEffectsInGraph = False
                 break
         return(causesDSeparatedFromEffectsInGraph)
 
 
-    def minimalBackDoorAdmissableSets(self, g, causes, effects):
+    def minimal_backdoor_admissable_sets(self, g, causes, effects):
 
-        def isSupersetOfAny_setOfSets(s, setOfSets):
+        def is_superset_of_any_set_of_sets(s, setOfSets):
             isSubset = False
             for i in setOfSets:
                 if set(s).issuperset(i):
@@ -91,16 +91,16 @@ class backDoorAdjustments(object):
 
         # If the empty set d-separates causes and effects in the back door graph
         # then return the empty set
-        if self.__areCausesDSeparatedFromEffects(backDoorGraph, set(), causes, effects):
+        if self.__are_causes_dseparated_from_effects(backDoorGraph, set(), causes, effects):
             return(set())
 
         # Check all set partitions of possibleAdjustmentNodes
         for r in range(len(possibleAdjustmentNodes)):
             for s in combinations(possibleAdjustmentNodes,r+1):
                 # Check s only if s is not a super set of any set already in minAdmissablesSets
-                if not isSupersetOfAny_setOfSets(s,minAdmissablesSets):
+                if not is_superset_of_any_set_of_sets(s,minAdmissablesSets):
                     # Only add set to minAdmissablesSets if all causes are d-Separated of causes
-                    if self.__areCausesDSeparatedFromEffects(backDoorGraph, s, causes, effects):
+                    if self.__are_causes_dseparated_from_effects(backDoorGraph, s, causes, effects):
                         minAdmissablesSets.add(frozenset(s))
 
         # If after checking all combinations we don't find any admissable set then raise an Exception

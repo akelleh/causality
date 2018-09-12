@@ -18,7 +18,7 @@ class TestBackDoorAdjustments(TestAPI):
         effects = ['y']
 
         adjustment = backDoorAdjustments()
-        minAdmissablesSets = adjustment.minimalBackDoorAdmissableSets(self.g,causes,effects)
+        minAdmissablesSets = adjustment.minimal_backdoor_admissable_sets(self.g,causes,effects)
 
         realMinAdmissablesSets = {frozenset({'x2', 'x4'}),
                                   frozenset({'x4', 'x5'}),
@@ -31,7 +31,7 @@ class TestBackDoorAdjustments(TestAPI):
         effects = ['y']
 
         adjustment = backDoorAdjustments()
-        minAdmissablesSets = adjustment.minimalBackDoorAdmissableSets(self.g,causes,effects)
+        minAdmissablesSets = adjustment.minimal_backdoor_admissable_sets(self.g,causes,effects)
 
         realMinAdmissablesSets = {frozenset({'x4'})}
         assert(realMinAdmissablesSets==minAdmissablesSets)
