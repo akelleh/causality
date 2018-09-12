@@ -1,6 +1,7 @@
 from networkx.algorithms import is_directed_acyclic_graph
 import networkx as nx
-from pgmpy.models import BayesianModel
+#from pgmpy.models import BayesianModel
+from causality.estimation.utils import utils
 from itertools import combinations
 
 class AdjustmentException(Exception):
@@ -43,7 +44,7 @@ class backDoorAdjustments(object):
         # Internal function to exit double loop
         def is_cause_dseparated_from_effects(g, s, cause, effects):
             for effect in effects:
-                if g.is_active_trail(cause, effect, observed=s):
+                if utils().is_active_trail(g, cause, effect, observed=s):
                     return(False)
             return(True)
 
@@ -70,7 +71,8 @@ class backDoorAdjustments(object):
 
         # Bayesian Network is a DiGraph wrapper from pgmpy
         # used because of its d-separation function (is_active_trail)
-        backDoorGraph = BayesianModel(nx.edges(g))
+        #backDoorGraph = BayesianModel(nx.edges(g))
+        backDoorGraph = nx.DiGraph(nx.edges(g))
         descendantsOfCauses = set()
 
         # Create back door graph and collect descendants from causes
