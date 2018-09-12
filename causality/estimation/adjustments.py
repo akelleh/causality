@@ -86,13 +86,13 @@ class backDoorAdjustments(object):
         possibleAdjustmentNodes = set(backDoorGraph.nodes()).difference(set(causes),
                                                                         set(effects),
                                                                         set(descendantsOfCauses))
-        # Initialize outcome variable which will be a set of sets
+        # Keep track of which sets have been added
         minAdmissablesSets = set()
 
         # If the empty set d-separates causes and effects in the back door graph
         # then return the empty set
         if self.__are_causes_dseparated_from_effects(backDoorGraph, set(), causes, effects):
-            return(set())
+            return
 
         # Check all set partitions of possibleAdjustmentNodes
         for r in range(len(possibleAdjustmentNodes)):
@@ -102,9 +102,10 @@ class backDoorAdjustments(object):
                     # Only add set to minAdmissablesSets if all causes are d-Separated of causes
                     if self.__are_causes_dseparated_from_effects(backDoorGraph, s, causes, effects):
                         minAdmissablesSets.add(frozenset(s))
+                        yield frozenset(s)
 
         # If after checking all combinations we don't find any admissable set then raise an Exception
         if len(minAdmissablesSets)==0:
             raise AdjustmentException("Failed to satisfy adjustment assumptions")
 
-        return(minAdmissablesSets)
+        return
