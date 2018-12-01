@@ -7,8 +7,7 @@ import networkx as nx
 
 from causality.inference.independence_tests import (RobustRegressionTest,
                                                     ChiSquaredTest,
-                                                    MutualInformationTest,
-                                                    MixedChiSquaredTest)
+                                                    MutualInformationTest)
 
 TEST_SET_SIZE = 2000
 TRIALS = 2
@@ -64,41 +63,6 @@ class TestChi2(TestAPI):
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(not test.independent())
 
-class TestMixedChi2(TestAPI):
-    def setUp(self):
-        TEST_SET_SIZE = 500 # 700
-        a = numpy.random.randn(TEST_SET_SIZE) * 3
-        b = numpy.random.randn(TEST_SET_SIZE) + a
-        c = numpy.random.randn(TEST_SET_SIZE) + a
-        d = numpy.random.randn(TEST_SET_SIZE)
-        self.X = pd.DataFrame({'a' : a,
-                               'b' : b,
-                               'c' : c,
-                               'd' : d })
-        self.variable_types = {'a': 'c',
-                               'b': 'c',
-                               'c': 'c',
-                               'd': 'c'}
-        self.alpha = 0.05
-
-    def test_mixed_chi2(self):
-        x = ['b']
-        y = ['c']
-        z = ['a']
-        test = MixedChiSquaredTest(y, x, z,
-                                   self.X,
-                                   self.alpha,
-                                   self.variable_types)
-        assert(test.independent())
-
-        x = ['b']
-        y = ['c']
-        z = ['d']
-        test = MixedChiSquaredTest(y, x, z,
-                                   self.X,
-                                   self.alpha,
-                                   self.variable_types)
-        assert(not test.independent())
 
 class TestMutualInformation(TestAPI):
     def setUp(self):
