@@ -9,7 +9,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 setup(
     name='causality',
 
-    version='0.0.6',
+    version='0.0.7',
 
     description='Tools for causal analysis',
     long_description=long_description,
@@ -42,5 +42,5 @@ setup(
     install_requires=['numpy', 'scipy', 'pandas',
                       'statsmodels', 'networkx', 'patsy', 
                       'pytz', 'python-dateutil', 'decorator',
-                      'pytz', 'six', 'pymc']
+                      'pytz', 'six']
 )
