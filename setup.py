@@ -9,9 +9,9 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 setup(
     name='causality',
 
-    version='0.0.7',
+    version='0.0.8',
 
-    description='Tools for causal analysis',
+    description='Tools for causal inference',
     long_description=long_description,
 
     url='http://github.com/akelleh/causality',
@@ -35,7 +35,7 @@ setup(
         'Programming Language :: Python :: 2.7',
     ],
 
-    keywords='causality data analysis inference causal graphs DAG',
+    keywords='causality data analysis inference causal graphs DAG propensity score matching',
 
     packages=find_packages(exclude=['tests']),
 
