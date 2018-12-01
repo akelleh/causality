@@ -42,5 +42,5 @@ setup(
     install_requires=['numpy', 'scipy', 'pandas',
                       'statsmodels', 'networkx', 'patsy', 
                       'pytz', 'python-dateutil', 'decorator',
-                      'pytz', 'six', 'pymc']
+                      'pytz', 'six']
 )
