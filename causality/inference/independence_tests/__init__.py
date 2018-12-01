@@ -6,6 +6,8 @@ import itertools
 from statsmodels.nonparametric.kernel_density import KDEMultivariateConditional, KDEMultivariate, EstimatorSettings
 import pymc3
 from collections import Counter
+import theano as tt
+from theano.tensor import _shared
 
 DEFAULT_BINS = 2
 
@@ -64,7 +66,6 @@ class ChiSquaredTest():
             return True
 
 class MixedChiSquaredTest(object):
-
     """
     This test compares the chi2 statistic between two distributions.  One where
     P(X,Y,Z) = P(X|Z)P(Y|Z)P(Z) (the conditionally indep distribution), where
@@ -76,6 +77,7 @@ class MixedChiSquaredTest(object):
     are deemed conditionally dependent given Z.
     """
     def __init__(self, y, x, z, X, alpha, variable_types={}, burn=1000, thin=10, bins={}):
+        self.X = X
         self.variable_types = variable_types
         self.bins = bins
         self.alpha = alpha
@@ -149,13 +151,13 @@ class MixedChiSquaredTest(object):
 
         # if conditioning on the empty set, return a pdf instead of cond pdf
         if len(z) == 0:
-            return KDEMultivariate(X[x],
+            return KDEMultivariate(_shared(X[x].values),
                                   var_type=''.join([self.variable_types[xi] for xi in x]),
                                   bw=bw,
                                   defaults=self.defaults)
         else:
-            return KDEMultivariateConditional(endog=X[x],
-                                              exog=X[z],
+            return KDEMultivariateConditional(endog=_shared(X[x].values),
+                                              exog=_shared(X[z].values),
                                               dep_type=''.join([self.variable_types[xi] for xi in x]),
                                               indep_type=''.join([self.variable_types[zi] for zi in z]),
                                               bw=bw,
@@ -189,29 +191,48 @@ class MixedChiSquaredTest(object):
         mcmc.sample(iter=iterations, burn=burn, thin=thin)
         return pd.DataFrame(mcmc.trace('joint_sample')[:], columns=self.x + self.y + self.z)
         """
-        def logp(value):
+        def logp(joint_sample):
+            #print("sample_point: ", joint_sample.eval())
             x_length, y_length, z_length = len(self.x), len(self.y), len(self.z)
-            print(value)
-            print(self.x)
+            #print(value.shape.eval(), type(value))
+            #print(self.x)
+            print(x_length, y_length, z_length)
+            xi = np.array([joint_sample[:x_length]])  # value[:, :x_length]#[value[i] for i in range(x_length)]
+            yi = np.array([joint_sample[x_length:x_length + y_length]])  # [:, x_length:x_length + y_length]#[value[i + x_length] for i in range(y_length)]
+            zi = np.array([joint_sample[x_length + y_length: x_length + y_length + z_length]])  # [:, x_length + y_length: x_length + y_length + z_length]#[value[i + x_length + y_length] for i in range(z_length)]
+            print(xi, yi, zi)
+            print(np.shape(xi))
 
-            xi = value[:, :x_length]#[value[i] for i in range(x_length)]
-            yi = value[:, x_length:x_length + y_length]#[value[i + x_length] for i in range(y_length)]
-            zi = value[:, x_length + y_length: x_length + y_length + z_length]#[value[i + x_length + y_length] for i in range(z_length)]
+            #xi = joint_sample[:x_length]
+            #yi = joint_sample[x_length:x_length + y_length]
+            #zi = joint_sample[x_length + y_length: x_length + y_length + z_length]
+
             if z_length == 0:
-                #print(xi.shape, yi, zi)
                 log_px_given_z = np.log(self.densities[0].pdf(data_predict=xi))
                 log_py_given_z = np.log(self.densities[1].pdf(data_predict=yi))
                 log_pz = 0.
             else:
-                print(xi.shape.eval(), yi, zi.shape)
                 log_px_given_z = np.log(self.densities[0].pdf(endog_predict=xi, exog_predict=zi))
-                log_py_given_z =np.log(self.densities[1].pdf(endog_predict=yi, exog_predict=zi))
+                log_py_given_z = np.log(self.densities[1].pdf(endog_predict=yi, exog_predict=zi))
                 log_pz = np.log(self.densities[2].pdf(data_predict=zi))
-            return log_px_given_z + log_py_given_z + log_pz
+                print(log_px_given_z, log_py_given_z, log_pz)
+
+            return float(log_px_given_z + log_py_given_z + log_pz)
+
         with pymc3.Model() as model:
-            ci_joint = pymc3.DensityDist('joint_sample', logp, shape=(1,len(self.x + self.y + self.z)))  # self.mcmc_initialization)
+            #print(self.mcmc_initialization, self.mcmc_initialization.shape)
+            #print(logp(self.mcmc_initialization))
+            #sample_length = len(self.x + self.y + self.z)
+            #mu = pymc3.MvNormal('mu', self.mcmc_initialization, np.diag([1 for _ in range(sample_length)]), shape=self.mcmc_initialization.shape)
+            #normal_dist = pymc3.MvNormal('sampler', mu, np.diag([1 for _ in range(sample_length)]), shape=self.mcmc_initialization.shape, testval=self.mcmc_initialization)
+
+            ## This works for other versions of logp. The theano input to logp at runtime is what breaks it. It's
+            ## incompatible with the internals of statsmodels density estimators, which depend on numpy ndarray methods.
+            ## can we convert the theano objects into numpy objects?
+            ci_joint = pymc3.DensityDist('joint_sample', logp, shape=self.mcmc_initialization.shape)#, shape=self.mcmc_initialization.shape, random=normal_dist.random)  #random=normal_dist.random,
             trace = pymc3.sample(self.N, tune=self.burn)
-        return pd.DataFrame(trace('joint_sample')[:], columns=self.x + self.y + self.z)
+            print(pymc3.summary(trace))
+        return pd.DataFrame(trace['joint_sample'][:], columns=self.x + self.y + self.z)
 
 
 class MutualInformationTest():
