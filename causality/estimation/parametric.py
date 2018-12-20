@@ -216,7 +216,7 @@ class PropensityScoreMatching(PropensityScoringModel):
         :param n_neighbors: The number of matches we'd like
         :return: The indices of the matched units in the dataframe of potential matches.
         """
-        max_distance = max(knn.kneighbors(score)[0].flatten())
+        max_distance = max(knn.kneighbors([[score]])[0].flatten()) # max(knn.kneighbors(score)[0].flatten())
         lower_score = score - max_distance
         upper_score = score + max_distance
         gt = potential_matches[potential_matches[score_name] >= lower_score]
