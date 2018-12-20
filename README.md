@@ -1,6 +1,6 @@
 # Causality
 
-This package contains tools for causal analysis using observational (rather than experimental) datasets.
+This package contains tools for causal analysis using observational (rather than experimental) datasets. The main documentation is on the github page at github.com/akelleh/causality
 
 ## Installation
 
