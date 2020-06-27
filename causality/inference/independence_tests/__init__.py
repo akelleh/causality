@@ -35,7 +35,7 @@ class ChiSquaredTest():
         self.total_dof = 0
         for xi, yi in itertools.product(x,y):
             tables = data[[xi]+[yi]+z].copy()
-            groupby_key = tuple([zi for zi in z] + [xi])
+            groupby_key = list([zi for zi in z] + [xi])
             tables = tables.join(pd.get_dummies(data[yi],prefix=yi)).groupby(groupby_key).sum()
             del tables[yi]
 
