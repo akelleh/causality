@@ -1,11 +1,12 @@
-from causality.plot import plot_DAG
+from causality.plot import plot_marked_partially_directed_graph
+from networkx.classes.digraph import DiGraph
 
 import numpy
 import pandas as pd
 
 from causality.inference.search import IC
 from causality.inference.independence_tests import RobustRegressionTest
-from networkx.classes.digraph import DiGraph
+
 
 
 def _make_DAG():
@@ -31,6 +32,10 @@ def _make_DAG():
 
 def test_plot_DAG():
     graph = _make_DAG()
-    pos, digraph = plot_DAG(graph)
+    pos, digraph, edges_ICstar = plot_marked_partially_directed_graph(graph)
     assert isinstance(pos, dict)
     assert isinstance(digraph, DiGraph)
+    assert isinstance(edges_ICstar, dict)
+    assert 'marked' in edges_ICstar
+    assert 'directed' in edges_ICstar
+    assert 'undirected' in edges_ICstar
