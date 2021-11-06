@@ -44,9 +44,9 @@ class IC():
         self._g = nx.Graph()
         self._g.add_nodes_from(variable_types.keys())
         for var, var_type in variable_types.items():
-            self._g.node[var]['type'] = var_type
+            self._g.nodes[var]['type'] = var_type
         edges_to_add = []
-        for (node_a, node_b) in itertools.combinations(self._g.node.keys(), 2):
+        for (node_a, node_b) in itertools.combinations(self._g.nodes.keys(), 2):
             edges_to_add.append((node_a,node_b))
         self._g.add_edges_from(edges_to_add, marked=False)
 
@@ -121,7 +121,7 @@ class IC():
         """
         self.separating_sets = {}
         if not self.max_k:
-            self.max_k = len(self._g.node)+1
+            self.max_k = len(self._g.nodes)+1
         for N in range(self.max_k + 1):
             for (x, y) in list(self._g.edges()):
                 x_neighbors = list(self._g.neighbors(x))

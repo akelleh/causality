@@ -36,7 +36,7 @@ class Test_IC(TestAPI):
         assert(len(self.ic._g.edges()) == (V-1)*V / 2) 
         assert(set(self.ic._g.nodes()) == set(self.variable_types.keys()))
         for node, variable_type in self.variable_types.items():
-            assert(self.ic._g.node[node]['type'] == variable_type)
+            assert(self.ic._g.nodes[node]['type'] == variable_type)
         for i, j in self.ic._g.edges():
             assert(self.ic._g.get_edge_data(i, j)['marked'] == False)
 

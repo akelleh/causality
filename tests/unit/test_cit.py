@@ -30,36 +30,42 @@ class TestChi2(TestAPI):
         x = ['a']
         y = ['b']
         z = []
+        print(f"${x} \\not\\perp {y} | {z}$")
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(not test.independent())
 
         x = ['a']
         y = ['b']
         z = ['c','d']
+        print(f"${x} \\not\\perp {y} | {z}$")
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(not test.independent())
 
         x = ['a']
         y = ['c']
         z = []
+        print(f"${x} \\perp {y} | {z}$")
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(test.independent())
 
         x = ['a']
         y = ['c']
         z = ['b']
+        print(f"${x} \\perp {y} | {z}$")
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(test.independent())
 
         x = ['a','b']
         y = ['c']
         z = ['d']
+        print(f"${x} \\perp {y} | {z}$")
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(test.independent())
 
         x = ['a']
         y = ['b','c']
         z = ['d']
+        print(f"${x} \\not\\perp {y} | {z}$")
         test = ChiSquaredTest(y,x,z,self.X,self.alpha)
         assert(not test.independent())
 
