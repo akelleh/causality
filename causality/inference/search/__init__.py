@@ -72,6 +72,10 @@ class IC():
                 if self._marked_directed_path(a,b):
                     self._g[a][b]['arrows'].append(b)
                     added_arrows = True
+            if a not in self._g[a][b]['arrows']:
+                if self._marked_directed_path(b,a):
+                    self._g[a][b]['arrows'].append(a)
+                    added_arrows = True
         return added_arrows
 
     def _marked_directed_path(self,a,b):
