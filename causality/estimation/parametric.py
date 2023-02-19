@@ -5,6 +5,7 @@ from statsmodels.discrete.discrete_model import Logit
 from sklearn.neighbors import NearestNeighbors
 from causality.util import bootstrap_statistic
 import numpy as np
+import logging
 
 
 class DifferenceInDifferences(object):
@@ -220,7 +221,12 @@ class PropensityScoreMatching(PropensityScoringModel):
         lower_score = score - max_distance
         upper_score = score + max_distance
         gt = potential_matches[potential_matches[score_name] >= lower_score]
-        return gt[gt[score_name] <= upper_score].sample(n_neighbors).index.values
+        candidates = gt[gt[score_name] <= upper_score]
+        if len(candidates) < n_neighbors:
+            logging.warning("Insufficient matches found. Returning None.")
+            return np.array([])
+        else:
+            return candidates.sample(n_neighbors).index.values
 
 
     def estimate_treatments(self, treatments, matched_control, outcome):
