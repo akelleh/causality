@@ -176,7 +176,7 @@ treated, control = matcher.match(X, assignment='d')
 and finally re-assess the balance after matching
 
 ```python
-matcher.assess_balance(treated.append(control), 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
+matcher.assess_balance(pd.concat([treated, control]), 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c'})
 {'z1': 0.00031457811654961971,
  'z2': 0.01274281423785816,
  'z3': -0.01515794796420316}
@@ -191,7 +191,7 @@ matcher.assess_balance(X, 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c', 'propensity sco
  'z2': 0.2577923164800251,
  'z3': 0.24351497330531932}
  
-matcher.assess_balance(treated.append(control), 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c', 'propensity score': 'c'})
+matcher.assess_balance(pd.concat([treated, control]), 'd', {'z1': 'c', 'z2': 'c', 'z3': 'c', 'propensity score': 'c'})
  {'propensity score': 0.00067420782959645405,
   'z1': 4.3693151229817443e-05,
   'z2': -0.0044512025748346248,
