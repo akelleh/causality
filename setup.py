@@ -9,7 +9,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 setup(
     name='causality',
 
-    version='0.0.9',
+    version='0.0.11',
 
     description='Tools for causal inference',
     long_description=long_description,
