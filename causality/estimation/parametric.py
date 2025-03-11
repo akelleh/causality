@@ -38,17 +38,16 @@ class DifferenceInDifferences(object):
         df = pd.DataFrame({'y' : test_initial,
                    assignment : [1. for i in test_initial],
                    't' :[0. for i in test_initial] })
-        df = df.append(pd.DataFrame({'y' : test_final,
+        df = pd.concat([df, pd.DataFrame({'y' : test_final,
                                      assignment : [1. for i in test_final],
-                                     't' :[1. for i in test_final] }))
-
-        df = df.append(pd.DataFrame({'y' : control_initial,
+                                     't' :[1. for i in test_final] })])
+        df = pd.concat([df, pd.DataFrame({'y' : control_initial,
                                      assignment : [0. for i in control_initial],
-                                     't' :[0. for i in control_initial] }))
+                                     't' :[0. for i in control_initial] })])
 
-        df = df.append(pd.DataFrame({'y' : control_final,
+        df = pd.concat([df, pd.DataFrame({'y' : control_final,
                                      assignment : [0. for i in control_final],
-                                     't' :[1. for i in control_final] }))
+                                     't' :[1. for i in control_final] })])
         del test_initial, test_final, control_initial, control_final
         df['did'] = df['t'] * df[assignment]
         df['intercept'] = 1.
@@ -149,7 +148,7 @@ class PropensityScoreMatching(PropensityScoringModel):
         else:
             treated, matched_control = self.get_control_matches(treated, control, score=score, n_neighbors=n_neighbors)
             matched_treated, control = self.get_treated_matches(treated, control, score=score, n_neighbors=n_neighbors)
-            return treated.append(matched_treated), control.append(matched_control)
+            return pd.concat([treated, matched_treated]), pd.concat([control, matched_control])
 
     def get_control_matches(self, treated, control, score='propensity score', n_neighbors=2):
         """
@@ -262,7 +261,7 @@ class PropensityScoreMatching(PropensityScoringModel):
         """
         df = self.score(X, confounder_types, assignment).copy()
         treatments, matched_control = self.match(df, assignment=assignment, score='propensity score', n_neighbors=n_neighbors)
-        df = treatments.append(matched_control)
+        df = pd.concat([treatments, matched_control])
         return self.get_weighted_effect_estimate(assignment, df, outcome, bootstrap=bootstrap)#estimate_ATT(df)
 
     def estimate_ATC(self, X, assignment, outcome, confounder_types, n_neighbors=5, bootstrap=False):
@@ -281,7 +280,7 @@ class PropensityScoreMatching(PropensityScoringModel):
         df = self.score(X, confounder_types, assignment).copy()
         treatments, matched_control = self.match(df, assignment=assignment, score='propensity score',
                                                  n_neighbors=n_neighbors, match_to='control')
-        df = treatments.append(matched_control)
+        df = pd.concat([treatments, matched_control])
         return self.get_weighted_effect_estimate(assignment, df, outcome, bootstrap=bootstrap)
 
     def estimate_ATE(self, X, assignment, outcome, confounder_types, score=None, n_neighbors=5, bootstrap=False):
@@ -304,7 +303,7 @@ class PropensityScoreMatching(PropensityScoringModel):
             score = 'propensity score'
         treated, control = self.match(X, assignment=assignment, score=score, n_neighbors=n_neighbors, treated_value=1,
               control_value=0, match_to='all')
-        return self.get_weighted_effect_estimate(assignment, treated.append(control), outcome, bootstrap=bootstrap)
+        return self.get_weighted_effect_estimate(assignment, pd.concat([treated, control]), outcome, bootstrap=bootstrap)
 
 
     def get_weighted_effect_estimate(self, assignment, df, outcome, bootstrap=False):
